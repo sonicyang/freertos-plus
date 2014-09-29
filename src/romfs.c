@@ -16,19 +16,22 @@ struct romfs_fds_t {
 struct romfs_file_t{
     uint32_t hash;
     uint32_t length;
+ //   uint8_t filename[64];
     uint8_t data;
 }__attribute__((packed));
 
 static struct romfs_fds_t romfs_fds[MAX_FDS];
 
+/*
 static uint32_t get_unaligned(const uint8_t * d) {
     return ((uint32_t) d[0]) | ((uint32_t) (d[1] << 8)) | ((uint32_t) (d[2] << 16)) | ((uint32_t) (d[3] << 24));
 }
+*/
 
 static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    const uint8_t * size_p = f->file - 4;
-    uint32_t size = get_unaligned(size_p);
+    const struct romfs_file_t * file_p = (struct romfs_file_t*)(f->file - (sizeof(struct romfs_file_t) - 1));
+    uint32_t size = file_p->length;
     
     if ((f->cursor + count) > size)
         count = size - f->cursor;
@@ -41,8 +44,8 @@ static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
 
 static off_t romfs_seek(void * opaque, off_t offset, int whence) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    const uint8_t * size_p = f->file - 4;
-    uint32_t size = get_unaligned(size_p);
+    const struct romfs_file_t * file_p = (struct romfs_file_t*)(f->file - (sizeof(struct romfs_file_t) - 1));
+    uint32_t size = file_p->length;
     uint32_t origin;
     
     switch (whence) {
