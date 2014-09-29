@@ -17,7 +17,7 @@ struct romfs_file_t{
     uint32_t hash;
     uint32_t length;
     uint8_t* data;
-}
+};
 
 static struct romfs_fds_t romfs_fds[MAX_FDS];
 

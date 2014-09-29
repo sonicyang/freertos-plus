@@ -24,7 +24,6 @@ void help_command(int, char **);
 void host_command(int, char **);
 void mmtest_command(int, char **);
 void test_command(int, char **);
-void filedump_command(int, char **);
 
 #define MKCL(n, d) {.name=#n, .fptr=n ## _command, .desc=d}
 
@@ -37,7 +36,6 @@ cmdlist cl[]={
 	MKCL(mmtest, "heap memory allocation test"),
 	MKCL(help, "help"),
 	MKCL(test, "test new function"),
-	MKCL(filedump, "dump file")
 };
 
 int parse_command(char *str, char *argv[]){
@@ -65,10 +63,10 @@ void ls_command(int n, char *argv[]){
 	fio_printf(1, "\r\n");
 }
 
-int filedump_command(int n, char *argv[]){
+int filedump(const char* filename){
 	char buf[128];
 
-	int fd=fs_open(argv[1], 0, O_RDONLY);
+	int fd=fs_open(filename, 0, O_RDONLY);
 
 	if(fd==OPENFAIL)
 		return 0;
