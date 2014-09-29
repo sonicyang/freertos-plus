@@ -70,6 +70,12 @@ void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * p
             b = (size >>  8) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (size >> 16) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (size >> 24) & 0xff; fwrite(&b, 1, 1, outfile);
+/*	    uint32_t filename_length = strlen(ent->d_name);
+            b = (filename_length >>  0) & 0xff; fwrite(&b, 1, 1, outfile);
+            b = (filename_length >>  8) & 0xff; fwrite(&b, 1, 1, outfile);
+            b = (filename_length >> 16) & 0xff; fwrite(&b, 1, 1, outfile);
+            b = (filename_length >> 24) & 0xff; fwrite(&b, 1, 1, outfile);
+	    fwrite(ent->d_name, 1, filename_length, outfile);*/
             while (size) {
                 w = size > 16 * 1024 ? 16 * 1024 : size;
                 fread(buf, 1, w, infile);

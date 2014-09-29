@@ -8,17 +8,18 @@
 #include "osdebug.h"
 #include "hash-djb2.h"
 
-struct romfs_fds_t {
-    const uint8_t * file;
-    uint32_t cursor;
-};
-
 struct romfs_file_t{
     uint32_t hash;
     uint32_t length;
- //   uint8_t filename[64];
+//    uint32_t filename_length;
+//    uint8_t filename;
     uint8_t data;
 }__attribute__((packed));
+
+struct romfs_fds_t {
+    const struct romfs_file_t * file;
+    uint32_t cursor;
+};
 
 static struct romfs_fds_t romfs_fds[MAX_FDS];
 
@@ -30,13 +31,12 @@ static uint32_t get_unaligned(const uint8_t * d) {
 
 static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    const struct romfs_file_t * file_p = (struct romfs_file_t*)(f->file - (sizeof(struct romfs_file_t) - 1));
-    uint32_t size = file_p->length;
+    uint32_t size = f->file->length;
     
     if ((f->cursor + count) > size)
         count = size - f->cursor;
 
-    memcpy(buf, f->file + f->cursor, count);
+    memcpy(buf, &(f->file->data) + f->cursor, count);
     f->cursor += count;
 
     return count;
@@ -44,8 +44,7 @@ static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
 
 static off_t romfs_seek(void * opaque, off_t offset, int whence) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    const struct romfs_file_t * file_p = (struct romfs_file_t*)(f->file - (sizeof(struct romfs_file_t) - 1));
-    uint32_t size = file_p->length;
+    uint32_t size = f->file->length;
     uint32_t origin;
     
     switch (whence) {
@@ -74,7 +73,7 @@ static off_t romfs_seek(void * opaque, off_t offset, int whence) {
     return offset;
 }
 
-const uint8_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32_t * len) {
+const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32_t * len) {
     const uint8_t* meta;
 
     for (meta = romfs; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length + (sizeof(struct romfs_file_t) - 1)) {
@@ -82,7 +81,7 @@ const uint8_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32
             if (len) {
                 *len = ((struct romfs_file_t*)meta)->length;
             }
-            return &(((struct romfs_file_t*)meta)->data);
+            return (struct romfs_file_t*)meta;
         }
     }
 
@@ -92,7 +91,7 @@ const uint8_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32
 static int romfs_open(void * opaque, const char * path, int flags, int mode) {
     uint32_t h = hash_djb2((const uint8_t *) path, -1);
     const uint8_t * romfs = (const uint8_t *) opaque;
-    const uint8_t * file;
+    const struct romfs_file_t * file;
     int r = -1;
 
     file = romfs_get_file_by_hash(romfs, h, NULL);
