@@ -60,7 +60,20 @@ int parse_command(char *str, char *argv[]){
 }
 
 void ls_command(int n, char *argv[]){
-	fio_printf(1, "\r\n");
+    fio_printf(1, "\r\n");
+    if(n == 1)
+	return;
+    
+    char** path = 0;
+    
+    int k = fs_list(argv[1], &path);
+    
+    fio_printf(1, "%d\r\n", k);
+
+    for(int i = 0; i < k; i++){
+	fio_printf(1, "%s\r\n", path[i]);
+    }
+    return;
 }
 
 int filedump(const char* filename){

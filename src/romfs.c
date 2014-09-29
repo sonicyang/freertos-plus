@@ -11,8 +11,8 @@
 struct romfs_file_t{
     uint32_t hash;
     uint32_t length;
-//    uint32_t filename_length;
-//    uint8_t filename;
+    uint32_t filename_length;
+    uint8_t filename;
     uint8_t data;
 }__attribute__((packed));
 
@@ -29,6 +29,10 @@ static uint32_t get_unaligned(const uint8_t * d) {
 }
 */
 
+const uint32_t get_data_offset(const struct romfs_file_t* file){
+    return sizeof(struct romfs_file_t) - 2 + file->filename_length;
+}
+
 static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
     uint32_t size = f->file->length;
@@ -36,7 +40,7 @@ static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
     if ((f->cursor + count) > size)
         count = size - f->cursor;
 
-    memcpy(buf, &(f->file->data) + f->cursor, count);
+    memcpy(buf, (uint8_t*)f->file + get_data_offset(f->file) + f->cursor, count);
     f->cursor += count;
 
     return count;
@@ -76,7 +80,7 @@ static off_t romfs_seek(void * opaque, off_t offset, int whence) {
 const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32_t * len) {
     const uint8_t* meta;
 
-    for (meta = romfs; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length + (sizeof(struct romfs_file_t) - 1)) {
+    for (meta = romfs; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length +  ((struct romfs_file_t*)meta)->filename_length + (sizeof(struct romfs_file_t) - 2)) {
         if (((struct romfs_file_t*)meta)->hash == h) {
             if (len) {
                 *len = ((struct romfs_file_t*)meta)->length;
@@ -86,6 +90,29 @@ const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32
     }
 
     return NULL;
+}
+
+static int romfs_list(void * opaque, char*** path) {
+    uint32_t count = 0;    
+
+    const uint8_t* meta;
+
+    for (meta = opaque; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length +  ((struct romfs_file_t*)meta)->filename_length + (sizeof(struct romfs_file_t) - 2)) {
+	count++;
+    }
+ 
+    (*path) = (char**)pvPortMalloc(sizeof(char*) * count);
+    
+    uint32_t i = 0;    
+
+    for (meta = opaque; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length +  ((struct romfs_file_t*)meta)->filename_length + (sizeof(struct romfs_file_t) - 2)) {
+	(*path)[i] = (char*)pvPortMalloc(sizeof(char) * ((struct romfs_file_t*)meta)->filename_length + 1);
+	strncpy((*path)[i], (const char*)&((const struct romfs_file_t*)meta)->filename, ((struct romfs_file_t*)meta)->filename_length);
+	strcat((*path)[i], '\0');
+	i++;	
+    }
+
+    return i;
 }
 
 static int romfs_open(void * opaque, const char * path, int flags, int mode) {
@@ -109,5 +136,5 @@ static int romfs_open(void * opaque, const char * path, int flags, int mode) {
 
 void register_romfs(const char * mountpoint, const uint8_t * romfs) {
 //    DBGOUT("Registering romfs `%s' @ %p\r\n", mountpoint, romfs);
-    register_fs(mountpoint, romfs_open, (void *) romfs);
+    register_fs(mountpoint, romfs_open, romfs_list, (void *) romfs);
 }

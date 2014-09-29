@@ -224,7 +224,11 @@ static int devfs_open(void * opaque, const char * path, int flags, int mode) {
     return -1;
 }
 
+static int devfs_list(void * opaque, char *** path) {
+    return 0;  
+}
+
 void register_devfs() {
     DBGOUT("Registering devfs.\r\n");
-    register_fs("dev", devfs_open, NULL);
+    register_fs("dev", devfs_open, devfs_list, NULL);
 }
