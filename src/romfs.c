@@ -8,16 +8,19 @@
 #include "osdebug.h"
 #include "hash-djb2.h"
 
+#include "clib.h"
+
 struct romfs_file_t{
     uint32_t hash;
-    uint32_t length;
     uint32_t filename_length;
-    uint8_t filename;
-    uint8_t data;
+    uint8_t attribute;
+    uint32_t length;
+    uint32_t data_offset;
 }__attribute__((packed));
 
 struct romfs_fds_t {
-    const struct romfs_file_t * file;
+    const struct romfs_file_t * file_des;
+    const uint8_t* data;
     uint32_t cursor;
 };
 
@@ -29,18 +32,18 @@ static uint32_t get_unaligned(const uint8_t * d) {
 }
 */
 
-const uint32_t get_data_offset(const struct romfs_file_t* file){
-    return sizeof(struct romfs_file_t) - 2 + file->filename_length;
+const uint8_t* get_data_address(const struct romfs_file_t* file, const uint8_t* romfs){
+    return romfs + ((sizeof(struct romfs_file_t) * (*((uint32_t*)romfs))) + 4 + file->data_offset);
 }
 
 static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    uint32_t size = f->file->length;
+    uint32_t size = f->file_des->length;
     
     if ((f->cursor + count) > size)
         count = size - f->cursor;
 
-    memcpy(buf, (uint8_t*)f->file + get_data_offset(f->file) + f->cursor, count);
+    memcpy(buf, f->data + f->file_des->filename_length + f->cursor, count);
     f->cursor += count;
 
     return count;
@@ -48,7 +51,7 @@ static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
 
 static off_t romfs_seek(void * opaque, off_t offset, int whence) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    uint32_t size = f->file->length;
+    uint32_t size = f->file_des->length;
     uint32_t origin;
     
     switch (whence) {
@@ -78,14 +81,15 @@ static off_t romfs_seek(void * opaque, off_t offset, int whence) {
 }
 
 const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32_t * len) {
-    const uint8_t* meta;
-
-    for (meta = romfs; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length +  ((struct romfs_file_t*)meta)->filename_length + (sizeof(struct romfs_file_t) - 2)) {
-        if (((struct romfs_file_t*)meta)->hash == h) {
+    uint32_t file_count = (*(uint32_t*)romfs);
+    const struct romfs_file_t* meta = (struct romfs_file_t*)(romfs + 4);
+    fio_printf(1, "%d\n", file_count);
+    for (uint32_t i = 0; i < file_count; i++) {
+        if (meta[i].hash == h) {
             if (len) {
-                *len = ((struct romfs_file_t*)meta)->length;
+                *len = meta[i].length;
             }
-            return (struct romfs_file_t*)meta;
+            return meta + i;
         }
     }
 
@@ -93,23 +97,17 @@ const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32
 }
 
 static int romfs_list(void * opaque, char*** path) {
-    uint32_t count = 0;    
+    uint8_t* romfs = opaque;
+    uint32_t file_count = (*(uint32_t*)romfs);
+    const struct romfs_file_t* meta = (struct romfs_file_t*)(romfs + 4);
 
-    const uint8_t* meta;
+    (*path) = (char**)pvPortMalloc(sizeof(char*) * file_count);
+    uint32_t i;
 
-    for (meta = opaque; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length +  ((struct romfs_file_t*)meta)->filename_length + (sizeof(struct romfs_file_t) - 2)) {
-	count++;
-    }
- 
-    (*path) = (char**)pvPortMalloc(sizeof(char*) * count);
-    
-    uint32_t i = 0;    
-
-    for (meta = opaque; ((struct romfs_file_t*)meta)->hash && ((struct romfs_file_t*)meta)->length; meta += ((struct romfs_file_t*)meta)->length +  ((struct romfs_file_t*)meta)->filename_length + (sizeof(struct romfs_file_t) - 2)) {
-	(*path)[i] = (char*)pvPortMalloc(sizeof(char) * ((struct romfs_file_t*)meta)->filename_length + 1);
-	strncpy((*path)[i], (const char*)&((const struct romfs_file_t*)meta)->filename, ((struct romfs_file_t*)meta)->filename_length);
+    for (i = 0; i < file_count; i++) {
+	(*path)[i] = (char*)pvPortMalloc(sizeof(char) * meta[i].filename_length + 1);
+	strncpy((*path)[i], (char*)get_data_address(meta + i, romfs), meta[i].filename_length);
 	strcat((*path)[i], '\0');
-	i++;	
     }
 
     return i;
@@ -125,8 +123,10 @@ static int romfs_open(void * opaque, const char * path, int flags, int mode) {
 
     if (file) {
         r = fio_open(romfs_read, NULL, romfs_seek, NULL, NULL);
+	fio_printf(1, "Open File %s \n", path);
         if (r > 0) {
-            romfs_fds[r].file = file;
+            romfs_fds[r].file_des = file;
+            romfs_fds[r].data = get_data_address(file, romfs);
             romfs_fds[r].cursor = 0;
             fio_set_opaque(r, romfs_fds + r);
         }
