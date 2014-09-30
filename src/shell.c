@@ -66,9 +66,7 @@ void ls_command(int n, char *argv[]){
     
     char** path = 0;
     
-    int k = fs_list(argv[1], &path);
-    
-    fio_printf(1, "%d\r\n", k);
+    int k = fio_list(argv[1], &path);
 
     for(int i = 0; i < k; i++){
 	fio_printf(1, "%s\r\n", path[i]);

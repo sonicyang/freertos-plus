@@ -197,6 +197,17 @@ void fio_set_opaque(int fd, void * opaque) {
         fio_fds[fd].opaque = opaque;
 }
 
+int fio_list(const char* mount, char*** path){
+    if(!path)
+        return -1;
+
+    xSemaphoreTake(fio_sem, portMAX_DELAY);
+    int n = fs_list(mount, path);
+    xSemaphoreGive(fio_sem);
+
+    return n;
+}
+
 #define stdin_hash 0x0BA00421
 #define stdout_hash 0x7FA08308
 #define stderr_hash 0x7FA058A3
