@@ -26,6 +26,7 @@ void usage(const char * binname) {
 
 void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * prefix) {
     char fullpath[1024];
+    char rpath[1024];
     char buf[16 * 1024];
     struct dirent * ent;
     DIR * rec_dirp;
@@ -37,8 +38,9 @@ void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * p
     while ((ent = readdir(dirp))) {
         strcpy(fullpath, prefix);
         strcat(fullpath, "/");
-        strcat(fullpath, curpath);
-        strcat(fullpath, ent->d_name);
+        strcpy(rpath, curpath);
+        strcat(rpath, ent->d_name);
+        strcat(fullpath, rpath);
     #ifdef _WIN32
         if (GetFileAttributes(fullpath) & FILE_ATTRIBUTE_DIRECTORY) {
     #else
@@ -70,12 +72,12 @@ void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * p
             b = (size >>  8) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (size >> 16) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (size >> 24) & 0xff; fwrite(&b, 1, 1, outfile);
-    	    uint32_t filename_length = strlen(ent->d_name);
+    	    uint32_t filename_length = strlen(rpath);
             b = (filename_length >>  0) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (filename_length >>  8) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (filename_length >> 16) & 0xff; fwrite(&b, 1, 1, outfile);
             b = (filename_length >> 24) & 0xff; fwrite(&b, 1, 1, outfile);
-	        fwrite(ent->d_name, 1, filename_length, outfile);
+	        fwrite(rpath, 1, filename_length, outfile);
             while (size) {
                 w = size > 16 * 1024 ? 16 * 1024 : size;
                 fread(buf, 1, w, infile);
