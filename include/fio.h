@@ -38,6 +38,7 @@ ssize_t fio_write(int fd, const void * buf, size_t count);
 off_t fio_seek(int fd, off_t offset, int whence);
 int fio_close(int fd);
 void fio_set_opaque(int fd, void * opaque);
+int fio_list(const char* mount, char*** path);
 
 void register_devfs();
 
