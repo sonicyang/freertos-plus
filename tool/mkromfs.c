@@ -55,14 +55,32 @@ void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * p
     uint32_t file_count = 0;
     uint32_t current_data_offset = 0;
     
+    //Create Dir node
     while ((ent=readdir(dirp))){
-        if (ent->d_type != DT_DIR) {
-            file_count++;
-        }
+	if (strcmp(ent->d_name, ".") == 0)
+	    continue;
+	if (strcmp(ent->d_name, "..") == 0)
+	    continue;
+        file_count++;
     }
-    
-    reverse_fwrite(outfile, file_count);
 
+    hash = hash_djb2((const uint8_t *) curpath, cur_hash);
+    filename_length = strlen(ent->d_name);
+    
+    reverse_fwrite(outfile, hash);
+    reverse_fwrite(outfile, filename_length);
+    b = 1; fwrite(&b, 1, 1, outfile);
+
+    fseek(infile, 0, SEEK_END);
+    size = ftell(infile);
+    fseek(infile, 0, SEEK_SET);
+    reverse_fwrite(outfile, size);
+    reverse_fwrite(outfile, current_data_offset);
+    current_data_offset += filename_length + 4 + file_count * 4;
+
+    fwrite(ent->d_name, 1, filename_length, outfile);
+    reverse_fwrite(outfile, file_count);
+    
     printf("Making romfs.....\n");
     printf("Total Count : %d\n", file_count);
 
@@ -72,30 +90,14 @@ void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * p
         strcat(fullpath, "/");
         strcat(fullpath, curpath);
         strcat(fullpath, ent->d_name);
-    #ifdef _WIN32
-        if (GetFileAttributes(fullpath) & FILE_ATTRIBUTE_DIRECTORY) {
-    #else
-        if (ent->d_type == DT_DIR) {
-    #endif
-            if (strcmp(ent->d_name, ".") == 0)
-                continue;
-            if (strcmp(ent->d_name, "..") == 0)
-                continue;
-            strcat(fullpath, "/");
-            rec_dirp = opendir(fullpath);
-            processdir(rec_dirp, fullpath + strlen(prefix) + 1, outfile, prefix);
-            closedir(rec_dirp);
-        } else {
-            hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
-	    filename_length = strlen(ent->d_name);
-            infile = fopen(fullpath, "rb");
-            if (!infile) {
-                perror("opening input file");
-                exit(-1);
-            }
-	    
-            printf("Added : %d %s Offset:%d\n", hash, ent->d_name, current_data_offset);
-	    reverse_fwrite(outfile, hash);
+
+        if (strcmp(ent->d_name, ".") == 0)
+	    continue;
+        if (strcmp(ent->d_name, "..") == 0)
+            continue;
+
+        hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
+	reverse_fwrite(outfile, hash);
 	    reverse_fwrite(outfile, filename_length);
   	    b = 0; fwrite(&b, 1, 1, outfile);
 
@@ -147,6 +149,50 @@ void processdir(DIR * dirp, const char * curpath, FILE * outfile, const char * p
                 fwrite(buf, 1, w, outfile);
                 size -= w;
             }
+            fclose(infile);
+        }
+    }
+    seekdir(dirp, 0);
+    while ((ent = readdir(dirp))) {
+        strcpy(fullpath, prefix);
+        strcat(fullpath, "/");
+        strcat(fullpath, curpath);
+        strcat(fullpath, ent->d_name);
+
+        if (strcmp(ent->d_name, ".") == 0)
+	    continue;
+        if (strcmp(ent->d_name, "..") == 0)
+            continue;
+    #ifdef _WIN32
+        if (GetFileAttributes(fullpath) & FILE_ATTRIBUTE_DIRECTORY) {
+    #else
+        if (ent->d_type == DT_DIR) {
+    #endif
+            strcat(fullpath, "/");
+            rec_dirp = opendir(fullpath);
+            processdir(rec_dirp, fullpath + strlen(prefix) + 1, outfile, prefix);
+            closedir(rec_dirp);
+        } else {
+            hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
+	    filename_length = strlen(ent->d_name);
+            infile = fopen(fullpath, "rb");
+            if (!infile) {
+                perror("opening input file");
+                exit(-1);
+            }
+	    
+            printf("Added : %d %s Offset:%d\n", hash, ent->d_name, current_data_offset);
+	    reverse_fwrite(outfile, hash);
+	    reverse_fwrite(outfile, filename_length);
+  	    b = 0; fwrite(&b, 1, 1, outfile);
+
+            fseek(infile, 0, SEEK_END);
+            size = ftell(infile);
+            fseek(infile, 0, SEEK_SET);
+            reverse_fwrite(outfile, size);
+            reverse_fwrite(outfile, current_data_offset);
+            current_data_offset += size + filename_length;
+            
             fclose(infile);
         }
     }
