@@ -52,21 +52,21 @@ static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
 }
 
 static ssize_t romfs_readdir(void * opaque, struct dir_entity_t* ent) {
-    struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    uint32_t* file_hashes = (uint32_t*)(f->data + f->file_des->filename_length);
+    struct romfs_fds_t * dir = (struct romfs_fds_t *) opaque;
+    uint32_t* file_hashes = (uint32_t*)(dir->data + dir->file_des->filename_length);
     uint32_t file_count = *(file_hashes++);
     const struct romfs_file_t * file;
 
-    if(f->cursor >= file_count)
+    if(dir->cursor >= file_count)
         return -2;
 
-    file = romfs_get_file_by_hash(f->opaque, file_hashes[f->cursor], NULL);
-    strncpy(ent->d_name, (char*)get_data_address(file, f->opaque), file->filename_length);
+    file = romfs_get_file_by_hash(dir->opaque, file_hashes[dir->cursor], NULL);
+    strncpy(ent->d_name, (char*)get_data_address(file, dir->opaque), file->filename_length);
     ent->d_name[file->filename_length] = '\0';
 
     ent->d_attr = file->attribute;
 
-    f->cursor++;
+    dir->cursor++;
     return 0;
 }
 
