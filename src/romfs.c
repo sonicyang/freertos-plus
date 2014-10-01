@@ -64,6 +64,8 @@ static ssize_t romfs_readdir(void * opaque, struct dir_entity_t* ent) {
     strncpy(ent->d_name, (char*)get_data_address(file, f->opaque), file->filename_length);
     ent->d_name[file->filename_length] = '\0';
 
+    ent->d_attr = file->attribute;
+
     f->cursor++;
     return 0;
 }

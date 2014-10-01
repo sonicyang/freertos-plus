@@ -60,24 +60,41 @@ int parse_command(char *str, char *argv[]){
 }
 
 void ls_command(int n, char *argv[]){
-    fio_printf(1, "\r\n");
+    uint8_t listFlag = 0;
+
     if(n == 1)
     	return;
-    
+
+    if(n >= 3){
+        if(strcmp(argv[1], "-l") == 0){
+            listFlag = 1;
+        }else{
+            fio_printf(1, "Unsupported option %s", argv[1]);
+        }
+    }
+     
+    fio_printf(1, "\r\n");
     struct dir_entity_t ent;
-    
-    int dir = fs_opendir(argv[1]);
+    int dir = fs_opendir(argv[n - 1]); //Treat last argv as path
 
     int c = 0;
     while(fio_readdir(dir, &ent) >= 0){
-        fio_printf(1, "%s", ent.d_name);
-        if(c > 5){
-           fio_printf(1, "\r\n");
-           c = 0;
-        }
-        else{
-            fio_printf(1, "\t");
-            c++;
+        if(!listFlag){
+            fio_printf(1, "%s", ent.d_name);
+            if(c > 5){
+               fio_printf(1, "\r\n");
+               c = 0;
+            }
+            else{
+                fio_printf(1, "\t");
+                c++;
+            }
+        }else{
+//            fio_printf(1, "Total %d", 0);
+            char attrs[11] = "----------\0";
+            if(ent.d_attr & 0x01)
+                attrs[0] = 'd';
+            fio_printf(1, "%s\t%s\r\n", attrs, ent.d_name);
         }
     }
 
@@ -122,7 +139,7 @@ void cat_command(int n, char *argv[]){
 		return;
 	}
 
-	if(!filedump(argv[1]))
+	if(filedump(argv[1]) < 0)
 		fio_printf(2, "\r\n%s no such file or directory.\r\n", argv[1]);
 
     fio_printf(1, "\r\n");

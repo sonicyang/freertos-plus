@@ -2,6 +2,7 @@
 #define __FIO_H__
 
 #include <stdio.h>
+#include <stdint.h>
 
 enum open_types_t {
     O_RDONLY = 0,
@@ -16,6 +17,7 @@ enum open_types_t {
 #define MAX_DDS 4
 
 struct dir_entity_t {
+    uint8_t d_attr;
     char d_name[256];    
 };
 
