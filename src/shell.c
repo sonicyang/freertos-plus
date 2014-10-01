@@ -62,17 +62,30 @@ int parse_command(char *str, char *argv[]){
 void ls_command(int n, char *argv[]){
     fio_printf(1, "\r\n");
     if(n == 1)
-	return;
+    	return;
     
-    char** path = 0;
+    struct dir_entity_t ent;
     
-    int k = fs_list(argv[1], &path);
-    
-    fio_printf(1, "%d\r\n", k);
+    int dir = fs_opendir(argv[1]);
 
-    for(int i = 0; i < k; i++){
-	fio_printf(1, "%s\r\n", path[i]);
+    int c = 0;
+    while(fio_readdir(dir, &ent) >= 0){
+        fio_printf(1, "%s", ent.d_name);
+        if(c > 5){
+           fio_printf(1, "\r\n");
+           c = 0;
+        }
+        else{
+            fio_printf(1, "\t");
+        }
+        c++;
     }
+
+    if(c != 1)
+        fio_printf(1, "\r\n");
+    
+    fio_closedir(dir);
+
     return;
 }
 
@@ -111,6 +124,8 @@ void cat_command(int n, char *argv[]){
 
 	if(!filedump(argv[1]))
 		fio_printf(2, "\r\n%s no such file or directory.\r\n", argv[1]);
+
+    fio_printf(1, "\r\n");
 }
 
 void man_command(int n, char *argv[]){

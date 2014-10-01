@@ -8,6 +8,7 @@
 #include "hash-djb2.h"
 
 static struct fddef_t fio_fds[MAX_FDS];
+static struct dddef_t fio_dds[MAX_DDS];
 
 /* recv_byte is define in main.c */
 char recv_byte();
@@ -95,11 +96,31 @@ static int fio_is_open_int(int fd) {
     return r;
 }
 
+static int fio_is_dir_open_int(int dd) {
+    if ((dd < 0) || (dd >= MAX_DDS))
+        return 0;
+    int r = !((fio_dds[dd].ddread == NULL) &&
+              (fio_dds[dd].ddclose == NULL) &&
+              (fio_dds[dd].opaque == NULL));
+    return r;
+}
+
 static int fio_findfd() {
     int i;
     
     for (i = 0; i < MAX_FDS; i++) {
         if (!fio_is_open_int(i))
+            return i;
+    }
+    
+    return -1;
+}
+
+static int fio_finddd() {
+    int i;
+    
+    for (i = 0; i < MAX_DDS; i++) {
+        if (!fio_is_dir_open_int(i))
             return i;
     }
     
@@ -132,12 +153,43 @@ int fio_open(fdread_t fdread, fdwrite_t fdwrite, fdseek_t fdseek, fdclose_t fdcl
     return fd;
 }
 
+int fio_opendir(ddread_t ddread, ddclose_t ddclose, void * opaque) {
+    int dd;
+//    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
+    xSemaphoreTake(fio_sem, portMAX_DELAY);
+    dd = fio_finddd();
+    
+    if (dd >= 0) {
+        fio_dds[dd].ddread = ddread;
+        fio_dds[dd].ddclose = ddclose;
+        fio_dds[dd].opaque = opaque;
+    }
+    xSemaphoreGive(fio_sem);
+    
+    return dd;
+}
+
 ssize_t fio_read(int fd, void * buf, size_t count) {
     ssize_t r = 0;
 //    DBGOUT("fio_read(%i, %p, %i)\r\n", fd, buf, count);
     if (fio_is_open_int(fd)) {
         if (fio_fds[fd].fdread) {
             r = fio_fds[fd].fdread(fio_fds[fd].opaque, buf, count);
+        } else {
+            r = -3;
+        }
+    } else {
+        r = -2;
+    }
+    return r;
+}
+
+ssize_t fio_readdir(int dd, struct dir_entity_t* ent) {
+    ssize_t r = 0;
+//    DBGOUT("fio_read(%i, %p, %i)\r\n", fd, buf, count);
+    if (fio_is_dir_open_int(dd)) {
+        if (fio_dds[dd].ddread) {
+            r = fio_dds[dd].ddread(fio_dds[dd].opaque, ent);
         } else {
             r = -3;
         }
@@ -192,9 +244,29 @@ int fio_close(int fd) {
     return r;
 }
 
+int fio_closedir(int dd) {
+    int r = 0;
+//    DBGOUT("fio_close(%i)\r\n", fd);
+    if (fio_is_dir_open_int(dd)) {
+        if (fio_dds[dd].ddclose)
+            r = fio_dds[dd].ddclose(fio_dds[dd].opaque);
+        xSemaphoreTake(fio_sem, portMAX_DELAY);
+        memset(fio_dds + dd, 0, sizeof(struct dddef_t));
+        xSemaphoreGive(fio_sem);
+    } else {
+        r = -2;
+    }
+    return r;
+}
+
 void fio_set_opaque(int fd, void * opaque) {
     if (fio_is_open_int(fd))
         fio_fds[fd].opaque = opaque;
+}
+
+void fio_set_dir_opaque(int dd, void * opaque) {
+    if (fio_is_dir_open_int(dd))
+        fio_dds[dd].opaque = opaque;
 }
 
 #define stdin_hash 0x0BA00421
@@ -224,11 +296,7 @@ static int devfs_open(void * opaque, const char * path, int flags, int mode) {
     return -1;
 }
 
-static int devfs_list(void * opaque, char *** path) {
-    return 0;  
-}
-
 void register_devfs() {
     DBGOUT("Registering devfs.\r\n");
-    register_fs("dev", devfs_open, devfs_list, NULL);
+    register_fs("dev", devfs_open, NULL, NULL);
 }

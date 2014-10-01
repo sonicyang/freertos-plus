@@ -8,13 +8,14 @@
 #define OPENFAIL (-1)
 
 typedef int (*fs_open_t)(void * opaque, const char * fname, int flags, int mode);
-typedef int (*fs_list_t)(void * opaque, char*** path);
+typedef int (*fs_opendir_t)(void * opaque, char* path);
 
 /* Need to be called before using any other fs functions */
 __attribute__((constructor)) void fs_init();
 
-int register_fs(const char * mountpoint, fs_open_t callback, fs_list_t list_callback, void * opaque);
+int register_fs(const char * mountpoint, fs_open_t callback, fs_opendir_t od_cb, void * opaque);
 int fs_open(const char * path, int flags, int mode);
+int fs_opendir(char * path);
 int fs_list(const char * path, char*** ret_path);
 
 #endif

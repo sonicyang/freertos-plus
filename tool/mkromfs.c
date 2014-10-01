@@ -51,12 +51,15 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
     FILE * infile;
     
     uint32_t filename_length;    
-    uint32_t file_count = 1;
+    uint32_t file_count = 0;
     
     //Create Dir node
     while ((ent=readdir(dirp))){
-        if(ent->d_type != DT_DIR)
-            file_count++;
+        if (strcmp(ent->d_name, ".") == 0)
+            continue;
+        if (strcmp(ent->d_name, "..") == 0)
+            continue;
+        file_count++;
     }
 
     hash = hash_djb2((const uint8_t *) curr_dirname, cur_hash);
@@ -69,7 +72,8 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
     reverse_fwrite(outfile, 4 + file_count * 4);
 
     reverse_fwrite(outfile, *data_offset);
-    *data_offset += filename_length + 4 + (file_count - 1) * 4;
+    printf("Adding %s | %s, %d, Offset %d: \n", curpath, curr_dirname, hash, *data_offset);
+    *data_offset += filename_length + 4 + file_count * 4;
 
     seekdir(dirp, 0);
     while ((ent = readdir(dirp))) {
@@ -118,7 +122,7 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
                 continue;
             strcat(fullpath, "/");
             rec_dirp = opendir(fullpath);
-            file_count += processdir_table(rec_dirp, fullpath + strlen(prefix) + 1, outfile, prefix, data_offset, curr_dirname);
+            file_count += processdir_table(rec_dirp, fullpath + strlen(prefix) + 1, outfile, prefix, data_offset, ent->d_name);
             closedir(rec_dirp);
         }
     }
@@ -138,15 +142,17 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
     uint32_t filename_length;    
     uint32_t file_count = 0;
     
-    //Create Dir node
     while ((ent=readdir(dirp))){
-        if(ent->d_type != DT_DIR)
-            file_count++;
+        if (strcmp(ent->d_name, ".") == 0)
+            continue;
+        if (strcmp(ent->d_name, "..") == 0)
+            continue;
+        file_count++;
     }
 
     filename_length = strlen(curr_dirname);
     fwrite(curr_dirname, 1, filename_length, outfile);
-
+    
     reverse_fwrite(outfile, file_count);
 
     seekdir(dirp, 0);
@@ -160,9 +166,20 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
             continue;
         if (strcmp(ent->d_name, "..") == 0)
             continue;
+        if(ent->d_type == DT_DIR){
+            char tmp_path[1024] = "";
+            strcpy(tmp_path, curpath);
+            strcat(tmp_path, ent->d_name);
+            strcat(tmp_path, "/");
+            uint32_t feature_hash = hash_djb2((const uint8_t*) tmp_path, hash_init);
 
-        hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
-        reverse_fwrite(outfile, hash);
+            uint32_t hash = hash_djb2((const uint8_t*) ent->d_name, feature_hash);
+
+            reverse_fwrite(outfile, hash);
+        }else{
+            hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
+            reverse_fwrite(outfile, hash);
+        } 
     }
 
     seekdir(dirp, 0);
@@ -284,7 +301,7 @@ int main(int argc, char ** argv) {
     outfile_table = fopen(out_table_name, "rb");
     outfile_data = fopen(out_data_name, "rb");
 
-    reverse_fwrite(outfile, n);
+    reverse_fwrite(outfile, n + 1); //root dir
     
     fseek(outfile_table, 0, SEEK_END);
     size = ftell(outfile_table);
