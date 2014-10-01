@@ -158,6 +158,8 @@ static int romfs_opendir(void * opaque, char * path) {
     const uint8_t * romfs = (const uint8_t *) opaque;
     const struct romfs_file_t * file;
     int r = -1;
+    
+    fio_printf(1, "Opening Dir : %s %d\r\n", path, h);
 
     file = romfs_get_file_by_hash(romfs, h, NULL);
 

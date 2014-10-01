@@ -62,17 +62,17 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
         file_count++;
     }
 
-    hash = hash_djb2((const uint8_t *) curr_dirname, cur_hash);
+    //hash = hash_djb2((const uint8_t *) curr_dirname, cur_hash);
     filename_length = strlen(curr_dirname);
     
-    reverse_fwrite(outfile, hash);
+    reverse_fwrite(outfile, cur_hash);
     reverse_fwrite(outfile, filename_length);
     b = 1; fwrite(&b, 1, 1, outfile);
 
     reverse_fwrite(outfile, 4 + file_count * 4);
 
     reverse_fwrite(outfile, *data_offset);
-    printf("Adding %s | %s, %d, Offset %d: \n", curpath, curr_dirname, hash, *data_offset);
+    printf("Adding %s | %s, %d, Offset %d: \n", curpath, curr_dirname, cur_hash, *data_offset);
     *data_offset += filename_length + 4 + file_count * 4;
 
     seekdir(dirp, 0);
@@ -153,15 +153,12 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
     filename_length = strlen(curr_dirname);
     fwrite(curr_dirname, 1, filename_length, outfile);
     
+    printf("Encoding %s, count : %d\n", curpath, file_count);
+
     reverse_fwrite(outfile, file_count);
 
     seekdir(dirp, 0);
     while ((ent = readdir(dirp))) {
-        strcpy(fullpath, prefix);
-        strcat(fullpath, "/");
-        strcat(fullpath, curpath);
-        strcat(fullpath, ent->d_name);
-
         if (strcmp(ent->d_name, ".") == 0)
             continue;
         if (strcmp(ent->d_name, "..") == 0)
@@ -175,9 +172,10 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
 
             uint32_t hash = hash_djb2((const uint8_t*) ent->d_name, feature_hash);
 
-            reverse_fwrite(outfile, hash);
+            reverse_fwrite(outfile, feature_hash);
         }else{
             hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
+            printf("Linking %s, %d, %d\n",ent->d_name ,cur_hash, hash);
             reverse_fwrite(outfile, hash);
         } 
     }
