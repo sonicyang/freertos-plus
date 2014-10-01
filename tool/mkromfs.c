@@ -41,16 +41,24 @@ void reverse_fwrite(FILE* outfile, uint32_t data){
     return;
 }
 
+void write_romfs_file(FILE* outfile, struct romfs_file_t* file){
+    reverse_fwrite(outfile, file->hash);
+    reverse_fwrite(outfile, file->filename_length);
+    fwrite(&(file->attribute), 1, 1, outfile);
+    reverse_fwrite(outfile, file->length);
+    reverse_fwrite(outfile, file->data_offset);
+    return;
+}
+
 int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const char * prefix, int* data_offset, char* curr_dirname) {
     char fullpath[1024];
     struct dirent * ent;
     DIR * rec_dirp;
     uint8_t b;
     uint32_t cur_hash = hash_djb2((const uint8_t *) curpath, hash_init);
-    uint32_t size, hash;
     FILE * infile;
-    
-    uint32_t filename_length;    
+
+    struct romfs_file_t file;
     uint32_t file_count = 0;
     
     //Create Dir node
@@ -63,17 +71,17 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
     }
 
     //hash = hash_djb2((const uint8_t *) curr_dirname, cur_hash);
-    filename_length = strlen(curr_dirname);
     
-    reverse_fwrite(outfile, cur_hash);
-    reverse_fwrite(outfile, filename_length);
-    b = 1; fwrite(&b, 1, 1, outfile);
+    file.hash = cur_hash;
+    file.filename_length = strlen(curr_dirname);
+    file.attribute = 1; 
+    file.length = 4 + file_count * 4;
+    file.data_offset = *data_offset;
 
-    reverse_fwrite(outfile, 4 + file_count * 4);
+    write_romfs_file(outfile, &file);
+    *data_offset += file.filename_length + 4 + file_count * 4;
 
-    reverse_fwrite(outfile, *data_offset);
-    printf("Adding %s | %s, %d, Offset %d: \n", curpath, curr_dirname, cur_hash, *data_offset);
-    *data_offset += filename_length + 4 + file_count * 4;
+    printf("Adding %s | %s, %d, Offset %d: \n", curpath, curr_dirname, cur_hash, file.data_offset);
 
     seekdir(dirp, 0);
     while ((ent = readdir(dirp))) {
@@ -83,11 +91,9 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
         strcat(fullpath, ent->d_name);
 
         if (ent->d_type != DT_DIR) {
-            hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
-            filename_length = strlen(ent->d_name);
-            reverse_fwrite(outfile, hash);
-            reverse_fwrite(outfile, filename_length);
-            b = 0; fwrite(&b, 1, 1, outfile);
+            file.hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
+            file.filename_length = strlen(ent->d_name);
+            file.attribute = 0; 
 
             infile = fopen(fullpath, "rb");
             if (!infile) {
@@ -96,16 +102,17 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
             }
 
             fseek(infile, 0, SEEK_END);
-            size = ftell(infile);
+            file.length = ftell(infile);
             fseek(infile, 0, SEEK_SET);
-            reverse_fwrite(outfile, size);
-            reverse_fwrite(outfile, *data_offset);
-            printf("Adding %s, %d, Offset %d: \n", ent->d_name, hash, *data_offset);
-
-            *data_offset += size + filename_length;
-            
 
             fclose(infile);
+
+            file.data_offset = *data_offset;
+            *data_offset += file.length + file.filename_length;
+           
+            write_romfs_file(outfile, &file);
+
+            printf("Adding %s, %d, Offset %d: \n", ent->d_name, file.hash, file.data_offset);
         }
     }
 
@@ -132,6 +139,7 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
 
 int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char * prefix, char* curr_dirname) {
     char fullpath[1024];
+    char tmp_path[1024] = "";
     char buf[16 * 1024];
     struct dirent * ent;
     DIR * rec_dirp;
@@ -150,11 +158,9 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
         file_count++;
     }
 
-    filename_length = strlen(curr_dirname);
-    fwrite(curr_dirname, 1, filename_length, outfile);
-    
     printf("Encoding %s, count : %d\n", curpath, file_count);
 
+    fwrite(curr_dirname, 1, strlen(curr_dirname), outfile);
     reverse_fwrite(outfile, file_count);
 
     seekdir(dirp, 0);
@@ -164,7 +170,6 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
         if (strcmp(ent->d_name, "..") == 0)
             continue;
         if(ent->d_type == DT_DIR){
-            char tmp_path[1024] = "";
             strcpy(tmp_path, curpath);
             strcat(tmp_path, ent->d_name);
             strcat(tmp_path, "/");
@@ -187,8 +192,8 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
         strcat(fullpath, curpath);
         strcat(fullpath, ent->d_name);
         if (ent->d_type != DT_DIR) {
-            filename_length = strlen(ent->d_name);
-            fwrite(ent->d_name, 1, filename_length, outfile);
+            fwrite(ent->d_name, 1, strlen(ent->d_name), outfile);
+
             infile = fopen(fullpath, "rb");
             if (!infile) {
                 perror("opening input file");
