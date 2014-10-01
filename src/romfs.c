@@ -53,7 +53,7 @@ static ssize_t romfs_read(void * opaque, void * buf, size_t count) {
 
 static ssize_t romfs_readdir(void * opaque, struct dir_entity_t* ent) {
     struct romfs_fds_t * f = (struct romfs_fds_t *) opaque;
-    uint32_t* file_hashes = (uint32_t*)f->data;
+    uint32_t* file_hashes = (uint32_t*)(f->data + f->file_des->filename_length);
     uint32_t file_count = *(file_hashes++);
     const struct romfs_file_t * file;
 
@@ -158,8 +158,6 @@ static int romfs_opendir(void * opaque, char * path) {
     const uint8_t * romfs = (const uint8_t *) opaque;
     const struct romfs_file_t * file;
     int r = -1;
-    
-    fio_printf(1, "Opening Dir : %s %d\r\n", path, h);
 
     file = romfs_get_file_by_hash(romfs, h, NULL);
 

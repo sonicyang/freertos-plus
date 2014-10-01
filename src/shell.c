@@ -77,11 +77,11 @@ void ls_command(int n, char *argv[]){
         }
         else{
             fio_printf(1, "\t");
+            c++;
         }
-        c++;
     }
 
-    if(c != 1)
+    if(c != 0)
         fio_printf(1, "\r\n");
     
     fio_closedir(dir);
