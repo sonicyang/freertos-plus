@@ -54,7 +54,6 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
     char fullpath[1024];
     struct dirent * ent;
     DIR * rec_dirp;
-    uint8_t b;
     uint32_t cur_hash = hash_djb2((const uint8_t *) curpath, hash_init);
     FILE * infile;
 
@@ -139,7 +138,6 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
 
 int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char * prefix, char* curr_dirname) {
     char fullpath[1024];
-    char tmp_path[1024] = "";
     char buf[16 * 1024];
     struct dirent * ent;
     DIR * rec_dirp;
@@ -147,7 +145,6 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
     uint32_t size, w, hash;
     FILE * infile;
     
-    uint32_t filename_length;    
     uint32_t file_count = 0;
     
     while ((ent=readdir(dirp))){
@@ -170,14 +167,8 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
         if (strcmp(ent->d_name, "..") == 0)
             continue;
         if(ent->d_type == DT_DIR){
-            strcpy(tmp_path, curpath);
-            strcat(tmp_path, ent->d_name);
-            strcat(tmp_path, "/");
-            uint32_t feature_hash = hash_djb2((const uint8_t*) tmp_path, hash_init);
-
-            uint32_t hash = hash_djb2((const uint8_t*) ent->d_name, feature_hash);
-
-            reverse_fwrite(outfile, feature_hash);
+            hash = hash_djb2((const uint8_t*)"/", hash_djb2((const uint8_t*) ent->d_name, cur_hash));  //A tailing / due to it's a directory
+            reverse_fwrite(outfile, hash);
         }else{
             hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
             printf("Linking %s, %d, %d\n",ent->d_name ,cur_hash, hash);
