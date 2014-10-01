@@ -119,11 +119,12 @@ static int romfs_open(void * opaque, const char * path, int flags, int mode) {
     const struct romfs_file_t * file;
     int r = -1;
 
+    fio_printf(1, "Open File %s, %d \n", path, h);
     file = romfs_get_file_by_hash(romfs, h, NULL);
 
     if (file) {
         r = fio_open(romfs_read, NULL, romfs_seek, NULL, NULL);
-	fio_printf(1, "Open File %s \n", path);
+    	fio_printf(1, "Open File %s \n", path);
         if (r > 0) {
             romfs_fds[r].file_des = file;
             romfs_fds[r].data = get_data_address(file, romfs);

@@ -51,15 +51,12 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
     FILE * infile;
     
     uint32_t filename_length;    
-    uint32_t file_count = 0;
+    uint32_t file_count = 1;
     
     //Create Dir node
     while ((ent=readdir(dirp))){
-	if (strcmp(ent->d_name, ".") == 0)
-	    continue;
-	if (strcmp(ent->d_name, "..") == 0)
-	    continue;
-        file_count++;
+        if(ent->d_type != DT_DIR)
+            file_count++;
     }
 
     hash = hash_djb2((const uint8_t *) curr_dirname, cur_hash);
@@ -72,7 +69,7 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
     reverse_fwrite(outfile, 4 + file_count * 4);
 
     reverse_fwrite(outfile, *data_offset);
-    *data_offset += filename_length + 4 + file_count * 4;
+    *data_offset += filename_length + 4 + (file_count - 1) * 4;
 
     seekdir(dirp, 0);
     while ((ent = readdir(dirp))) {
@@ -83,6 +80,7 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
 
         if (ent->d_type != DT_DIR) {
             hash = hash_djb2((const uint8_t *) ent->d_name, cur_hash);
+            filename_length = strlen(ent->d_name);
             reverse_fwrite(outfile, hash);
             reverse_fwrite(outfile, filename_length);
             b = 0; fwrite(&b, 1, 1, outfile);
@@ -98,8 +96,11 @@ int processdir_table(DIR * dirp, const char * curpath, FILE * outfile, const cha
             fseek(infile, 0, SEEK_SET);
             reverse_fwrite(outfile, size);
             reverse_fwrite(outfile, *data_offset);
+            printf("Adding %s, %d, Offset %d: \n", ent->d_name, hash, *data_offset);
+
             *data_offset += size + filename_length;
             
+
             fclose(infile);
         }
     }
@@ -139,11 +140,8 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
     
     //Create Dir node
     while ((ent=readdir(dirp))){
-        if (strcmp(ent->d_name, ".") == 0)
-            continue;
-        if (strcmp(ent->d_name, "..") == 0)
-            continue;
-        file_count++;
+        if(ent->d_type != DT_DIR)
+            file_count++;
     }
 
     filename_length = strlen(curr_dirname);
