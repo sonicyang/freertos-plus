@@ -101,6 +101,18 @@ static off_t romfs_seek(void * opaque, off_t offset, int whence) {
     return offset;
 }
 
+static off_t romfs_seekdir(void * opaque, off_t offset) {
+    struct romfs_fds_t * dir = (struct romfs_fds_t *) opaque;
+    uint32_t file_count = *((uint32_t*)(dir->data + dir->file_des->filename_length));
+
+    if(offset >= file_count || offset < 0)
+        return -2;
+
+    dir->cursor = offset;
+
+    return offset;
+}
+
 const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32_t * len) {
     uint32_t file_count = (*(uint32_t*)romfs);
     const struct romfs_file_t* meta = (struct romfs_file_t*)(romfs + 4);
@@ -164,7 +176,7 @@ static int romfs_opendir(void * opaque, char * path) {
     file = romfs_get_file_by_hash(romfs, h, NULL);
 
     if (file) {
-        r = fio_opendir(romfs_readdir, NULL, NULL);
+        r = fio_opendir(romfs_readdir, romfs_seekdir, NULL, NULL);
         if (r >= 0) {
             romfs_dds[r].file_des = file;
             romfs_dds[r].data = get_data_address(file, romfs);

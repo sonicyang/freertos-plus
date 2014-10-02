@@ -153,7 +153,7 @@ int fio_open(fdread_t fdread, fdwrite_t fdwrite, fdseek_t fdseek, fdclose_t fdcl
     return fd;
 }
 
-int fio_opendir(ddread_t ddread, ddclose_t ddclose, void * opaque) {
+int fio_opendir(ddread_t ddread, ddseek_t ddseek, ddclose_t ddclose, void * opaque) {
     int dd;
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
     xSemaphoreTake(fio_sem, portMAX_DELAY);
@@ -161,6 +161,7 @@ int fio_opendir(ddread_t ddread, ddclose_t ddclose, void * opaque) {
     
     if (dd >= 0) {
         fio_dds[dd].ddread = ddread;
+        fio_dds[dd].ddseek = ddseek;
         fio_dds[dd].ddclose = ddclose;
         fio_dds[dd].opaque = opaque;
     }
@@ -220,6 +221,21 @@ off_t fio_seek(int fd, off_t offset, int whence) {
     if (fio_is_open_int(fd)) {
         if (fio_fds[fd].fdseek) {
             r = fio_fds[fd].fdseek(fio_fds[fd].opaque, offset, whence);
+        } else {
+            r = -3;
+        }
+    } else {
+        r = -2;
+    }
+    return r;
+}
+
+off_t fio_seekdir(int dd, off_t offset) {
+    off_t r = 0;
+//    DBGOUT("fio_seek(%i, %i, %i)\r\n", dd, offset, whence);
+    if (fio_is_open_int(dd)) {
+        if (fio_dds[dd].ddseek) {
+            r = fio_dds[dd].ddseek(fio_dds[dd].opaque, offset);
         } else {
             r = -3;
         }
