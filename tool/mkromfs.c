@@ -194,7 +194,6 @@ int processdir_data(DIR * dirp, const char * curpath, FILE * outfile, const char
             fseek(infile, 0, SEEK_END);
             size = ftell(infile);
             fseek(infile, 0, SEEK_SET);
-
             while (size) {
                 w = size > 16 * 1024 ? 16 * 1024 : size;
                 fread(buf, 1, w, infile);
