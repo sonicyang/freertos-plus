@@ -7,4 +7,3 @@ test-romfs.bin
 *.swp
 *~
 build
-output
