@@ -88,28 +88,3 @@ int fs_opendir(char* path) {
     return -2;
 }
 
-/*
-int fs_list(const char* path, char*** ret_path){
-    const char * slash;
-    uint32_t hash;
-    int i;
-    
-    while (path[0] == '/')
-        path++;
-    
-    slash = strchr(path, '/');
-    
-    if (!slash)
-        return -2;
-
-    hash = hash_djb2((const uint8_t *) path, slash - path);
-    path = slash + 1;
-
-    for (i = 0; i < MAX_FS; i++) {
-        if (fss[i].hash == hash)
-            return fss[i].list_cb(fss[i].opaque, ret_path);
-    }
-    
-    return -2;
-}
-*/

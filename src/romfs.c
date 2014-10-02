@@ -128,25 +128,6 @@ const struct romfs_file_t * romfs_get_file_by_hash(const uint8_t * romfs, uint32
     return NULL;
 }
 
-/*
-static int romfs_list(void * opaque, char*** path) {
-    uint8_t* romfs = opaque;
-    uint32_t file_count = (*(uint32_t*)romfs);
-    const struct romfs_file_t* meta = (struct romfs_file_t*)(romfs + 4);
-
-    (*path) = (char**)pvPortMalloc(sizeof(char*) * file_count);
-    uint32_t i;
-
-    for (i = 0; i < file_count; i++) {
-	(*path)[i] = (char*)pvPortMalloc(sizeof(char) * meta[i].filename_length + 1);
-	strncpy((*path)[i], (char*)get_data_address(meta + i, romfs), meta[i].filename_length);
-	strcat((*path)[i], '\0');
-    }
-
-    return i;
-}
-*/
-
 static int romfs_open(void * opaque, const char * path, int flags, int mode) {
     uint32_t h = hash_djb2((const uint8_t *) path, -1);
     const uint8_t * romfs = (const uint8_t *) opaque;
