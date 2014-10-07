@@ -1,3 +1,4 @@
+#include <FreeRTOS.h>
 #include "fio.h"
 #include <stdarg.h>
 #include "clib.h"
@@ -134,4 +135,16 @@ char *utoa(const char *numbox, unsigned int num, unsigned int base){
 	for(i=30; i>=0&&num; --i, num/=base)
 		buf[i] = numbox [num % base];
 	return buf+i+1;
+}
+
+void* malloc(size_t size){
+    return pvPortMalloc(size);
+}
+
+void* calloc(size_t nmemb, size_t size){
+    return malloc(nmemb * size);
+}
+
+void free(void* ptr){
+    vPortFree(ptr);
 }
