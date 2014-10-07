@@ -27,6 +27,7 @@ typedef off_t (*fdseek_t)(void * opaque, off_t offset, int whence);
 typedef int (*fdclose_t)(void * opaque);
 
 typedef ssize_t (*ddread_t)(void * opaque, struct dir_entity_t* ent);
+typedef off_t (*ddseek_t)(void * opaque, off_t offset);
 typedef int (*ddclose_t)(void * opaque);
 
 struct fddef_t {
@@ -39,6 +40,7 @@ struct fddef_t {
 
 struct dddef_t {
     ddread_t ddread;
+    ddseek_t ddseek;
     ddclose_t ddclose;
     void * opaque;
 };
@@ -47,9 +49,10 @@ struct dddef_t {
 __attribute__((constructor)) void fio_init();
 
 int fio_dir_is_open(int dd);
-int fio_opendir(ddread_t, ddclose_t, void * opaque);
+int fio_opendir(ddread_t, ddseek_t, ddclose_t, void * opaque);
 void fio_set_dir_opaque(int dd, void * opaque);
 int fio_closedir(int dd);
+off_t fio_seekdir(int fd, off_t offset);
 ssize_t fio_readdir(int dd, struct dir_entity_t* ent);
 
 int fio_is_open(int fd);

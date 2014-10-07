@@ -61,48 +61,61 @@ int parse_command(char *str, char *argv[]){
 
 void ls_command(int n, char *argv[]){
     uint8_t listFlag = 0;
+    struct dir_entity_t ent;
+    int dir, c;
 
-    if(n == 1)
-    	return;
-
-    if(n >= 3){
-        if(strcmp(argv[1], "-l") == 0){
-            listFlag = 1;
-        }else{
-            fio_printf(1, "Unsupported option %s", argv[1]);
+    if(n == 1){
+		fio_printf(2, "\r\nUsage: ls [-l] [path...]\r\n");
+        return;
+    }
+    
+    for(int i = 0; i < n; i++){
+        if(argv[i][0] == '-'){
+            if(strcmp(argv[i], "-l") == 0){
+                listFlag = 1;
+            }else{
+                fio_printf(1, "\r\nUnsupported option %s\r\n", argv[i]);
+                return;
+            }
         }
     }
      
-    fio_printf(1, "\r\n");
-    struct dir_entity_t ent;
-    int dir = fs_opendir(argv[n - 1]); //Treat last argv as path
+    for(int i = 1; i < n; i++){
+        if(argv[i][0] != '-'){
+            fio_printf(1, "\r\n");
+            dir = fs_opendir(argv[i]); //Treat last argv as path
+                        
+            for(c = 0; fio_readdir(dir, &ent) >= 0; c++);
+            fio_seekdir(dir, 0);
 
-    int c = 0;
-    while(fio_readdir(dir, &ent) >= 0){
-        if(!listFlag){
-            fio_printf(1, "%s", ent.d_name);
-            if(c > 5){
-               fio_printf(1, "\r\n");
-               c = 0;
+            fio_printf(1, "%s:\r\n", argv[i]); 
+            fio_printf(1, "Total : %d\r\n", c);
+            for(c = 0; fio_readdir(dir, &ent) >= 0; c++){
+                if(!listFlag){
+                    fio_printf(1, "%s", ent.d_name);
+                    if(c > 5){
+                       fio_printf(1, "\r\n");
+                       c = -1;
+                    }
+                    else{
+                        fio_printf(1, "\t");
+                        c++;
+                    }
+                }else{
+
+                    char attrs[11] = "----------\0";
+                    if(ent.d_attr & 0x01)
+                        attrs[0] = 'd';
+                    fio_printf(1, "%s\t%s\r\n", attrs, ent.d_name);
+                }
             }
-            else{
-                fio_printf(1, "\t");
-                c++;
-            }
-        }else{
-//            fio_printf(1, "Total %d", 0);
-            char attrs[11] = "----------\0";
-            if(ent.d_attr & 0x01)
-                attrs[0] = 'd';
-            fio_printf(1, "%s\t%s\r\n", attrs, ent.d_name);
+
+            if(c != 0)
+                fio_printf(1, "\r\n");
+            
+            fio_closedir(dir);
         }
     }
-
-    if(c != 0)
-        fio_printf(1, "\r\n");
-    
-    fio_closedir(dir);
-
     return;
 }
 
