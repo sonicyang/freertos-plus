@@ -20,36 +20,37 @@ typedef struct ramfs_inode_t{
     char filename[64];
     uint32_t data_length;
     uint32_t blocks[MAX_INODE_BLOCK_COUNT];
-};
+}ramfs_inode_t;
 
 typedef struct ramfs_block_t {
     uint8_t data[BLOCK_SIZE];
-};
+}ramfs_block_t;
 
 typedef struct ramfs_superblock_t{
     uint32_t inode_count;
     uint32_t block_count;
-    ramfs_inode_t* inode_list;
-    ramfs_block_t* block_pool;
-};
+    ramfs_inode_t** inode_list;
+    ramfs_block_t** block_pool;
+}ramfs_superblock_t;
 
-struct ramfs_fds_t {
-    const struct ramfs_file_t * file_des;
-    const uint8_t* data;
-    const uint8_t* opaque;
+typedef struct ramfs_fds_t {
+    const ramfs_inode_t * file_des;
+    const ramfs_superblock_t* sb;
     uint32_t cursor;
-};
+}ramfs_fds_t;
 
 static struct ramfs_fds_t ramfs_fds[MAX_FDS];
 static struct ramfs_fds_t ramfs_dds[MAX_FDS];
 
+/*
 const uint8_t* get_data_address(const struct ramfs_file_t* file, const uint8_t* ramfs){
     return ramfs + ((sizeof(struct ramfs_file_t) * (*((uint32_t*)ramfs))) + 4 + file->data_offset);
 }
+*/
 
 static ramfs_superblock_t* init_superblock(void){
     ramfs_superblock_t* ret = (ramfs_superblock_t*)calloc(sizeof(ramfs_superblock_t), 1);
-    ret->innode_count = 0; 
+    ret->inode_count = 0; 
     ret->block_count = 0;
     ret->inode_list = NULL;
     return ret;
@@ -68,11 +69,10 @@ static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblo
     ret->filename_length = strlen(filename);
     ret->attribute = 0;
     ret->data_length = 0; 
-    ret->blocks = NULL;
 
-    ramfs_inode_t* src = sb->inode_list;
-    sb->inode_list = (ramfs_inode_t*)calloc(sizeof(ramfs_inode_t), 1);
-    memcpy(sb->inode_list, src, sizeof(ramfs_inode_t) * sb->inode_count);
+    ramfs_inode_t** src = sb->inode_list;
+    sb->inode_list = (ramfs_inode_t**)calloc(sizeof(ramfs_inode_t*), 1);
+    memcpy(sb->inode_list, src, sizeof(ramfs_inode_t*) * sb->inode_count);
     free(src);
 
     sb->inode_list[sb->inode_count++] = ret;
@@ -80,16 +80,35 @@ static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblo
 }
 
 static ssize_t ramfs_read(void * opaque, void * buf, size_t count) {
-    struct ramfs_fds_t * f = (struct ramfs_fds_t *) opaque;
-    uint32_t size = f->file_des->length;
+    ramfs_fds_t * f = (ramfs_fds_t *) opaque;
+    uint8_t* des = (uint8_t*)buf;
+    uint32_t size = f->file_des->data_length;
+    uint32_t start_block_number;
+    uint32_t pCount = count;
     
+    if(!count)
+        return 0;
+
     if ((f->cursor + count) > size)
         count = size - f->cursor;
 
-    memcpy(buf, f->data + f->file_des->filename_length + f->cursor, count);
-    f->cursor += count;
+    start_block_number = f->cursor >> 12;   //Every Block is 4096 Bytes
+    if(f->cursor && (0xFFF))
+        start_block_number++;
+    
+    memcpy(des, f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data + (f->cursor & (0xFFF)), BLOCK_SIZE - (f->cursor & (0xFFF)));
+    count -= (f->cursor & (0xFFF));
+    des += (f->cursor & (0xFFF));
 
-    return count;
+    while(count){
+        memcpy(des, f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data, (count > BLOCK_SIZE ? BLOCK_SIZE: count));
+        count -= (count > BLOCK_SIZE ? BLOCK_SIZE: count);
+        des += (count > BLOCK_SIZE ? BLOCK_SIZE: count);
+    }
+
+    f->cursor += pCount;
+
+    return pCount;
 }
 
 static ssize_t ramfs_readdir(void * opaque, struct dir_entity_t* ent) {
@@ -155,7 +174,7 @@ static off_t ramfs_seekdir(void * opaque, off_t offset) {
 }
 
 const struct ramfs_inode_t * ramfs_get_file_by_hash(const ramfs_superblock_t* ramfs, uint32_t h) {
-    for (uint32_t i = 0; i < ramfs->innode_count; i++) {
+    for (uint32_t i = 0; i < ramfs->inode_count; i++) {
         if (ramfs->inode_list[i].hash == h) {
             return ramfs->inode_list[i];
         }
@@ -179,7 +198,7 @@ static int ramfs_open(void * opaque, const char * path, int flags, int mode) {
         r = fio_open(ramfs_read, NULL, ramfs_seek, NULL, NULL);
         if (r > 0) {
             ramfs_fds[r].file_des = file;
-            ramfs_fds[r].data = get_data_address(file, ramfs);
+            ramfs_fds[r].data = sb;
             ramfs_fds[r].cursor = 0;
             fio_set_opaque(r, ramfs_fds + r);
         }

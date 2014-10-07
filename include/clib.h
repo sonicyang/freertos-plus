@@ -19,6 +19,8 @@ char *utoa(const char *numbox, unsigned int i, unsigned int base);
 
 char *strcat(char * restrict dest, const char * restrict source);
 size_t strlen(const char *str);
-
+void* malloc(size_t size);
+void* calloc(size_t nump, size_t size);
+void free(void* ptr);
 
 #endif
