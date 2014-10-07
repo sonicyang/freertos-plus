@@ -16,10 +16,10 @@ enum open_types_t {
 #define MAX_FDS 32
 #define MAX_DDS 4
 
-struct dir_entity_t {
+typedef struct dir_entity_t {
     uint8_t d_attr;
     char d_name[256];    
-};
+}dir_entity_t;
 
 typedef ssize_t (*fdread_t)(void * opaque, void * buf, size_t count);
 typedef ssize_t (*fdwrite_t)(void * opaque, const void * buf, size_t count);

@@ -10,43 +10,14 @@
 
 #include "clib.h"
 
-#define MAX_INODE_BLOCK_COUNT 16
-#define BLOCK_SIZE 4096
-
-typedef struct ramfs_inode_t{
-    uint32_t hash;
-    uint32_t attribute;
-    uint32_t filename_length;
-    char filename[64];
-    uint32_t data_length;
-    uint32_t blocks[MAX_INODE_BLOCK_COUNT];
-}ramfs_inode_t;
-
-typedef struct ramfs_block_t {
-    uint8_t data[BLOCK_SIZE];
-}ramfs_block_t;
-
-typedef struct ramfs_superblock_t{
-    uint32_t inode_count;
-    uint32_t block_count;
-    ramfs_inode_t** inode_list;
-    ramfs_block_t** block_pool;
-}ramfs_superblock_t;
-
 typedef struct ramfs_fds_t {
-    const ramfs_inode_t * file_des;
-    const ramfs_superblock_t* sb;
+    ramfs_inode_t * file_des;
+    ramfs_superblock_t* sb;
     uint32_t cursor;
 }ramfs_fds_t;
 
 static struct ramfs_fds_t ramfs_fds[MAX_FDS];
-//static struct ramfs_fds_t ramfs_dds[MAX_FDS];
-
-/*
-const uint8_t* get_data_address(const struct ramfs_file_t* file, const uint8_t* ramfs){
-    return ramfs + ((sizeof(struct ramfs_file_t) * (*((uint32_t*)ramfs))) + 4 + file->data_offset);
-}
-*/
+static struct ramfs_fds_t ramfs_dds[MAX_FDS];
 
 static ramfs_superblock_t* init_superblock(void){
     ramfs_superblock_t* ret = (ramfs_superblock_t*)calloc(sizeof(ramfs_superblock_t), 1);
@@ -68,7 +39,6 @@ static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblo
     ramfs_inode_t* ret = (ramfs_inode_t*)calloc(sizeof(ramfs_inode_t), 1);
     ret->hash = h;
     strcpy(ret->filename, filename);
-    ret->filename_length = strlen(filename);
     ret->attribute = 0;
     ret->data_length = 0; 
 
@@ -113,26 +83,23 @@ static ssize_t ramfs_read(void * opaque, void * buf, size_t count) {
     return pCount;
 }
 
-/*
-static ssize_t ramfs_readdir(void * opaque, struct dir_entity_t* ent) {
-    struct ramfs_fds_t * dir = (struct ramfs_fds_t *) opaque;
-    uint32_t* file_hashes = (uint32_t*)(dir->data + dir->file_des->filename_length);
-    uint32_t file_count = *(file_hashes++);
-    const struct ramfs_file_t * file;
+static ssize_t ramfs_readdir(void * opaque, dir_entity_t* ent) {
+    ramfs_fds_t * dir = (ramfs_fds_t *) opaque;
+    uint32_t* file_hashes = dir->file_des->blocks + 1;
+    uint32_t file_count = *(dir->file_des->blocks);
+    const ramfs_inode_t * file;
 
     if(dir->cursor >= file_count)
         return -2;
 
-    file = ramfs_get_file_by_hash(dir->opaque, file_hashes[dir->cursor], NULL);
-    strncpy(ent->d_name, (char*)get_data_address(file, dir->opaque), file->filename_length);
-    ent->d_name[file->filename_length] = '\0';
+    file = ramfs_get_file_by_hash(dir->sb, file_hashes[dir->cursor]);
+    strcpy(ent->d_name, file->filename);
 
     ent->d_attr = file->attribute;
 
     dir->cursor++;
     return 0;
 }
-*/
 
 static off_t ramfs_seek(void * opaque, off_t offset, int whence) {
     struct ramfs_fds_t * f = (struct ramfs_fds_t *) opaque;
@@ -179,7 +146,7 @@ static off_t ramfs_seekdir(void * opaque, off_t offset) {
 }
 */
 
-const struct ramfs_inode_t * ramfs_get_file_by_hash(const ramfs_superblock_t* ramfs, uint32_t h) {
+ramfs_inode_t * ramfs_get_file_by_hash(const ramfs_superblock_t* ramfs, uint32_t h) {
     for (uint32_t i = 0; i < ramfs->inode_count; i++) {
         if (ramfs->inode_list[i]->hash == h) {
             return ramfs->inode_list[i];
@@ -191,7 +158,7 @@ const struct ramfs_inode_t * ramfs_get_file_by_hash(const ramfs_superblock_t* ra
 static int ramfs_open(void * opaque, const char * path, int flags, int mode) {
     uint32_t h = hash_djb2((const uint8_t *) path, -1);
     ramfs_superblock_t* sb = (ramfs_superblock_t*) opaque;
-    const struct ramfs_inode_t * file;
+    ramfs_inode_t * file;
     int r = -1;
 
     file = ramfs_get_file_by_hash(sb, h);
@@ -212,28 +179,27 @@ static int ramfs_open(void * opaque, const char * path, int flags, int mode) {
     return r;
 }
 
-/*
 static int ramfs_opendir(void * opaque, char * path) {
     uint32_t h = hash_djb2((const uint8_t *) path, -1);
-    const uint8_t * ramfs = (const uint8_t *) opaque;
-    const struct ramfs_file_t * file;
+    ramfs_superblock_t* sb = (ramfs_superblock_t*) opaque;
+    ramfs_inode_t * dir;
     int r = -1;
 
-    file = ramfs_get_file_by_hash(ramfs, h, NULL);
+    dir = ramfs_get_file_by_hash(sb, h);
+    if(!(dir->attribute && 1)) //This is not a directory
+        return -1;
 
-    if (file) {
+    if (dir) {
         r = fio_opendir(ramfs_readdir, ramfs_seekdir, NULL, NULL);
         if (r >= 0) {
-            ramfs_dds[r].file_des = file;
-            ramfs_dds[r].data = get_data_address(file, ramfs);
-            ramfs_dds[r].opaque = ramfs;
+            ramfs_dds[r].file_des = dir;
+            ramfs_dds[r].sb = sb;
             ramfs_dds[r].cursor = 0;
             fio_set_dir_opaque(r, ramfs_dds + r);
         }
     }
     return r;
 }
-*/
 
 void register_ramfs(const char * mountpoint, const uint8_t * ramfs) {
 //    DBGOUT("Registering ramfs `%s' @ %p\r\n", mountpoint, ramfs);

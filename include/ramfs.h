@@ -3,8 +3,30 @@
 
 #include <stdint.h>
 
-void register_romfs(const char * mountpoint, const uint8_t * romfs);
-const struct romfs_file_t* romfs_get_file_by_hash(const uint8_t * romfs, uint32_t h, uint32_t * len);
+#define MAX_INODE_BLOCK_COUNT 16
+#define BLOCK_SIZE 4096
+
+typedef struct ramfs_inode_t{
+    uint32_t hash;
+    uint32_t attribute;
+    char filename[64];
+    uint32_t data_length;
+    uint32_t blocks[MAX_INODE_BLOCK_COUNT];
+}ramfs_inode_t;
+
+typedef struct ramfs_block_t {
+    uint8_t data[BLOCK_SIZE];
+}ramfs_block_t;
+
+typedef struct ramfs_superblock_t{
+    uint32_t inode_count;
+    uint32_t block_count;
+    ramfs_inode_t** inode_list;
+    ramfs_block_t** block_pool;
+}ramfs_superblock_t;
+
+void register_ramfs(const char * mountpoint, const uint8_t * ramfs);
+ramfs_inode_t* ramfs_get_file_by_hash(const ramfs_superblock_t * romfs, uint32_t h);
 
 #endif
 
