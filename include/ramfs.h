@@ -2,9 +2,20 @@
 #define __RAMFS_H__
 
 #include <stdint.h>
+#include <filesystem.h>
 
 #define MAX_INODE_BLOCK_COUNT 16
 #define BLOCK_SIZE 4096
+
+
+int ramfs_read_superblock(void* opaque, struct superblock_t* sb);
+
+fs_type_t ramfs_r = {
+    .type_name_hash = 194671278;
+    .rsbcb = ramfs_read_superblock;
+    .require_dev = 0;
+    .next = NULL;
+};
 
 typedef struct ramfs_inode_t{
     uint32_t hash;

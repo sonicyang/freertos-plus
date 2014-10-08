@@ -156,7 +156,10 @@ int main()
 	
 	fs_init();
 	fio_init();
-	
+    
+    register_fs(&ramfs_r);
+    fs_mount(NULL, ramfs_r.type_name_hash, NULL);
+
 	register_romfs("romfs", &_sromfs);
 	register_ramfs("ramfs");
 	

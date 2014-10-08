@@ -12,13 +12,13 @@
 
 typedef struct fs_t {
     uint32_t used;
-    uint32_t mountpoint;    //in the end of the day, remove this
     superblock_t sb;
     void * opaque;
 }fs_t;
 
 static struct fs_t fss[MAX_FS];
 static fs_type_t* reg_fss = NULL;
+static inode_t inode_pool[MAX_INODE_CACHE_SIZE];
 
 /*
 static inode_t* resolvePath(const char* path){
@@ -46,10 +46,7 @@ static inode_t* resolvePath(const char* path){
 
 __attribute__((constructor)) void fs_init() {
     memset(fss, 0, sizeof(fss));
-    fss[0].used = 1;
-    fss[0].mountpoint = hash_djb2((const uint8_t *) "/", -1);
-    fss[0].sb.mounted = NULL;
-    fss[0].sb.covered = NULL;
+    memset(inode_pool, 0, sizeof(inode_pool));
 }
 
 int register_fs(fs_type_t* type) {
@@ -58,9 +55,8 @@ int register_fs(fs_type_t* type) {
     return 0;
 }
 
-int fs_mount(const char* mountpoint, uint32_t type, void* opaque){
+int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque){
     uint32_t i;
-    uint32_t mount_hash = hash_djb2((const uint8_t *) mountpoint, -1);
 
     fs_type_t* it = reg_fss;
     fs_t* ptr = NULL;
@@ -70,7 +66,7 @@ int fs_mount(const char* mountpoint, uint32_t type, void* opaque){
             ptr = fss + i;
     
     for (i = 0; i < MAX_FS; i++) 
-        if (fss[i].mountpoint == mount_hash) 
+        if (fss[i].sb.covered == mountpoint) 
             ptr = NULL;
 
     if(!ptr)
@@ -81,11 +77,74 @@ int fs_mount(const char* mountpoint, uint32_t type, void* opaque){
             if((it->require_dev) && (opaque == NULL))
                 return -3;
             ptr->used = 1;
-            ptr->mountpoint = mount_hash;
+            ptr->sb.covered = mountpoint;
+            if(mountpoint)
+                mountpoint->count++;
             return it->rsbcb(opaque, &ptr->sb);
         }
     } 
     return -1;
+}
+
+inode_t* fs_get_inode(uint32_t device, uint32_t number){
+    for(uint32_t i = 0; i < MAX_INODE_CACHE_SIZE; i++){
+        if((inode_pool[i].device == device) && (inode_pool[i].number == number)){
+            inode_pool[i].count++;
+            return inode_pool + i;
+        }
+    }
+
+    for(uint32_t i = 0; i < MAX_FS; i++){
+        if((fss[i].used) && (fss[i].sb.device == device)){
+            for(uint32_t i = 0; i < MAX_INODE_CACHE_SIZE; i++){
+                if(inode_pool[i].count == 0){
+                    inode_pool[i].device = device;
+                    inode_pool[i].number = number;
+                    fss[i].sb.superblock_ops.s_read_inode(&inode_pool[i]);
+                    inode_pool[i].count++;
+                    return inode_pool + i;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void fs_free_inode(inode_t* inode){
+    inode->count--;
+    return;
+}
+
+inode_t* search_path(const char* path){
+    inode_t *ptr, *ptr2;
+    uint32_t ret;
+
+    const char * slash;
+    slash = strchr(path, '/');
+    slash++;
+    
+    for(uint32_t i = 0; i < MAX_FS; i++){
+        if((fss[i].used) && (fss[i].sb.covered == NULL)){
+            ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
+        }
+    }
+
+    while(1){
+        slash = strchr(slash, '/');
+        if(!slash)
+            break;
+        slash++;
+        
+        ptr2 = ptr;
+        ret = ptr->inode_ops.i_lookup(ptr, slash);
+        if(ret)
+            return NULL;
+        ptr = fs_get_inode(ptr->device, ret);
+        fs_free_inode(ptr2);
+    }
+
+    return ptr; 
 }
 
 int fs_open(const char * path, int flags, int mode) {
@@ -94,6 +153,9 @@ int fs_open(const char * path, int flags, int mode) {
     int i;
 //    DBGOUT("fs_open(\"%s\", %i, %i)\r\n", path, flags, mode);
     
+
+
+
     while (path[0] == '/')
         path++;
     

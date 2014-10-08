@@ -22,7 +22,7 @@ typedef struct inode_t{
 
 typedef struct superblock_t{
     uint32_t device;
-    inode_t* mounted;
+    uint32_t mounted;
     inode_t* covered;
     uint32_t block_size;
     uint32_t type_hash;
