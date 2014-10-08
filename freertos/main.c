@@ -196,6 +196,7 @@ void serial_readwrite_task(void *pvParameters)
 
 int main()
 {
+    int;
 	init_led();
 
 	init_button();

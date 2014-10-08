@@ -7,54 +7,49 @@
 #include <hash-djb2.h>
 
 #define MAX_FS 16
-#define MAX_INODE_CACHE_SIZE
-
-typedef struct inode_t{
-    uint32_t device;
-    uint32_t number;
-    uint32_t mode;
-    uint32_t block_size;
-    uint32_t count;
-    uint32_t lock;
-    void* opaque;
-}inode_t;
-
-typedef struct superblock_t{
-    uint32_t device;
-    inode_t inode_list[MAX_INODE_CACHE_SIZE];
-    uint32_t block_size;
-    uint32_t type_hash;
-    void* opaque;
-}superblock_t;
-
-typedef struct superblock_operations{
-    uint32_t inode_count;
-    uint32_t block_count;
-    ramfs_inode_t** inode_list;
-    ramfs_block_t** block_pool;
-}superblock_operations;
-
-typedef struct fs_type_t {
-    uint32_t type_name_hash;
-    fs_read_superblock_callback_t rsbcb;
-    uint32_t require_dev; 
-    fs_type_t* next;
-}fs_type_t;
+#define MAX_INODE_CACHE_SIZE 128
+#define MAX_FS_DEPTH 16
 
 typedef struct fs_t {
     uint32_t used;
     uint32_t mountpoint;    //in the end of the day, remove this
     superblock_t sb;
-    superblock_operations sbop;
-    inode_operations inop;
     void * opaque;
 }fs_t;
 
 static struct fs_t fss[MAX_FS];
 static fs_type_t* reg_fss = NULL;
 
+/*
+static inode_t* resolvePath(const char* path){
+    char** stack[MAX_FS_DEPTH];
+    uint32_t i = 0;
+
+    //care Abs Path for now
+    if(path[0] != '/')
+        return NULL;
+
+    stack[0] = path + 1;
+    while(!strchr(stack[i], '/')){
+        stack[++i] = strchr(stack[i], '/') + 1;
+    }
+
+    inode_t* found;    
+    for (i = 0; i < MAX_FS; i++){
+        if (fss[i].used && (fss[i].sb.covered == NULL)) {
+            fss[i].inop.i_lookup(found, stack[0]);
+
+        }
+    }
+}
+*/
+
 __attribute__((constructor)) void fs_init() {
     memset(fss, 0, sizeof(fss));
+    fss[0].used = 1;
+    fss[0].mountpoint = hash_djb2((const uint8_t *) "/", -1);
+    fss[0].sb.mounted = NULL;
+    fss[0].sb.covered = NULL;
 }
 
 int register_fs(fs_type_t* type) {
@@ -63,7 +58,10 @@ int register_fs(fs_type_t* type) {
     return 0;
 }
 
-int mount_fs(uint32_t mountpoint, uint32_t type, void* opaque){
+int fs_mount(const char* mountpoint, uint32_t type, void* opaque){
+    uint32_t i;
+    uint32_t mount_hash = hash_djb2((const uint8_t *) mountpoint, -1);
+
     fs_type_t* it = reg_fss;
     fs_t* ptr = NULL;
 
@@ -71,6 +69,10 @@ int mount_fs(uint32_t mountpoint, uint32_t type, void* opaque){
         if (!fss[i].used) 
             ptr = fss + i;
     
+    for (i = 0; i < MAX_FS; i++) 
+        if (fss[i].mountpoint == mount_hash) 
+            ptr = NULL;
+
     if(!ptr)
         return -2;
     
@@ -79,8 +81,8 @@ int mount_fs(uint32_t mountpoint, uint32_t type, void* opaque){
             if((it->require_dev) && (opaque == NULL))
                 return -3;
             ptr->used = 1;
-            ptr->mountpoint = mountpoint;
-            return it->rsbcb(opaque, ptr);
+            ptr->mountpoint = mount_hash;
+            return it->rsbcb(opaque, &ptr->sb);
         }
     } 
     return -1;
