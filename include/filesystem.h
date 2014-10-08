@@ -7,6 +7,8 @@
 #define MAX_FS 16
 #define OPENFAIL (-1)
 
+typedef int (*fs_superblock_callback_t)(void* opaque, fs_t* fs);
+
 typedef int (*fs_open_t)(void * opaque, const char * fname, int flags, int mode);
 typedef int (*fs_opendir_t)(void * opaque, char* path);
 
