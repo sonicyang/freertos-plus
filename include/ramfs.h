@@ -1,5 +1,5 @@
-#ifndef __ROMFS_H__
-#define __ROMFS_H__
+#ifndef __RAMFS_H__
+#define __RAMFS_H__
 
 #include <stdint.h>
 
@@ -11,6 +11,7 @@ typedef struct ramfs_inode_t{
     uint32_t attribute;
     char filename[64];
     uint32_t data_length;
+    uint32_t block_count;
     uint32_t blocks[MAX_INODE_BLOCK_COUNT];
 }ramfs_inode_t;
 
@@ -25,7 +26,7 @@ typedef struct ramfs_superblock_t{
     ramfs_block_t** block_pool;
 }ramfs_superblock_t;
 
-void register_ramfs(const char * mountpoint, const uint8_t * ramfs);
+void register_ramfs(const char * mountpoint);
 ramfs_inode_t* ramfs_get_file_by_hash(const ramfs_superblock_t * romfs, uint32_t h);
 
 #endif

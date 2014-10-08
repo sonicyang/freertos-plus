@@ -12,6 +12,7 @@
 #include "filesystem.h"
 #include "fio.h"
 #include "romfs.h"
+#include "ramfs.h"
 
 #include "clib.h"
 #include "shell.h"
@@ -89,7 +90,7 @@ void command_prompt(void *pvParameters)
 {
 	char buf[128];
 	char *argv[20];
-        char hint[] = USER_NAME "@" USER_NAME "-STM32:~$ ";
+    char hint[] = USER_NAME "@" USER_NAME "-STM32:~$ ";
 
 	fio_printf(1, "\rWelcome to FreeRTOS Shell\r\n");
 	while(1){
@@ -157,6 +158,7 @@ int main()
 	fio_init();
 	
 	register_romfs("romfs", &_sromfs);
+	register_ramfs("ramfs");
 	
 	/* Create the queue used by the serial task.  Messages for write to
 	 * the RS232. */

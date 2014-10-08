@@ -40,10 +40,11 @@ static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblo
     ret->hash = h;
     strcpy(ret->filename, filename);
     ret->attribute = 0;
-    ret->data_length = 0; 
+    ret->data_length = 0;
+    ret->block_count = 0;
 
     ramfs_inode_t** src = sb->inode_list;
-    sb->inode_list = (ramfs_inode_t**)calloc(sizeof(ramfs_inode_t*), 1);
+    sb->inode_list = (ramfs_inode_t**)calloc(sizeof(ramfs_inode_t*), sb->inode_count + 1);
     memcpy(sb->inode_list, src, sizeof(ramfs_inode_t*) * sb->inode_count);
     free(src);
 
@@ -51,6 +52,54 @@ static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblo
     return ret;
 }
 
+static uint32_t add_block(ramfs_superblock_t* sb){
+    ramfs_block_t* ret = (ramfs_block_t*)calloc(sizeof(ramfs_block_t), 1);
+
+    ramfs_block_t** src = sb->block_pool;
+    sb->block_pool = (ramfs_block_t**)calloc(sizeof(ramfs_block_t*), sb->block_count + 1);
+    memcpy(sb->block_pool, src, sizeof(ramfs_block_t*) * sb->block_count);
+    free(src);
+
+    sb->block_pool[sb->block_count++] = ret;
+    return sb->block_count - 1;
+}
+
+static ssize_t ramfs_write(void * opaque, const void * buf, size_t count) {
+    ramfs_fds_t * f = (ramfs_fds_t *) opaque;
+    uint8_t* src = (uint8_t*)buf;
+    uint32_t start_block_number;
+    uint32_t pCount = count;
+    
+    if(!count)
+        return 0;
+
+    start_block_number = f->cursor >> 12;   //Every Block is 4096 Bytes
+    
+    if(start_block_number >= f->file_des->block_count){
+        f->file_des->blocks[f->file_des->block_count] = add_block(f->sb);
+        f->file_des->block_count++;
+        f->file_des->data_length += BLOCK_SIZE;
+    }
+    memcpy(f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data + (f->cursor & (0xFFF)), src, \
+            count < (BLOCK_SIZE - (f->cursor & (0xFFF))) ? count : BLOCK_SIZE - (f->cursor & (0xFFF)));
+    src += count < (BLOCK_SIZE - (f->cursor & (0xFFF))) ? count : BLOCK_SIZE - (f->cursor & (0xFFF));
+    count -= count < (BLOCK_SIZE - (f->cursor & (0xFFF))) ? count : BLOCK_SIZE - (f->cursor & (0xFFF));
+
+    while(count){
+        if(start_block_number >= f->file_des->block_count){
+            f->file_des->blocks[f->file_des->block_count] = add_block(f->sb);
+            f->file_des->block_count++;
+            f->file_des->data_length += BLOCK_SIZE;
+        }
+        memcpy(f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data, src, (count > BLOCK_SIZE ? BLOCK_SIZE: count));
+        src += (count > BLOCK_SIZE ? BLOCK_SIZE: count);
+        count -= (count > BLOCK_SIZE ? BLOCK_SIZE: count);
+    }
+
+    f->cursor += pCount;
+
+    return pCount;
+}
 static ssize_t ramfs_read(void * opaque, void * buf, size_t count) {
     ramfs_fds_t * f = (ramfs_fds_t *) opaque;
     uint8_t* des = (uint8_t*)buf;
@@ -65,17 +114,16 @@ static ssize_t ramfs_read(void * opaque, void * buf, size_t count) {
         count = size - f->cursor;
 
     start_block_number = f->cursor >> 12;   //Every Block is 4096 Bytes
-    if(f->cursor && (0xFFF))
-        start_block_number++;
     
-    memcpy(des, f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data + (f->cursor & (0xFFF)), BLOCK_SIZE - (f->cursor & (0xFFF)));
-    count -= (f->cursor & (0xFFF));
-    des += (f->cursor & (0xFFF));
+    memcpy(des, f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data + (f->cursor & (0xFFF)), \
+            count < (BLOCK_SIZE - (f->cursor & (0xFFF))) ? count : BLOCK_SIZE - (f->cursor & (0xFFF)));
+    des += count < (BLOCK_SIZE - (f->cursor & (0xFFF))) ? count : BLOCK_SIZE - (f->cursor & (0xFFF));
+    count -= count < (BLOCK_SIZE - (f->cursor & (0xFFF))) ? count : BLOCK_SIZE - (f->cursor & (0xFFF));
 
     while(count){
         memcpy(des, f->sb->block_pool[f->file_des->blocks[start_block_number++]]->data, (count > BLOCK_SIZE ? BLOCK_SIZE: count));
-        count -= (count > BLOCK_SIZE ? BLOCK_SIZE: count);
         des += (count > BLOCK_SIZE ? BLOCK_SIZE: count);
+        count -= (count > BLOCK_SIZE ? BLOCK_SIZE: count);
     }
 
     f->cursor += pCount;
@@ -132,10 +180,9 @@ static off_t ramfs_seek(void * opaque, off_t offset, int whence) {
     return offset;
 }
 
-/*
 static off_t ramfs_seekdir(void * opaque, off_t offset) {
     struct ramfs_fds_t * dir = (struct ramfs_fds_t *) opaque;
-    uint32_t file_count = *((uint32_t*)(dir->data + dir->file_des->filename_length));
+    uint32_t file_count = *(dir->file_des->blocks);
 
     if(offset >= file_count || offset < 0)
         return -2;
@@ -144,7 +191,6 @@ static off_t ramfs_seekdir(void * opaque, off_t offset) {
 
     return offset;
 }
-*/
 
 ramfs_inode_t * ramfs_get_file_by_hash(const ramfs_superblock_t* ramfs, uint32_t h) {
     for (uint32_t i = 0; i < ramfs->inode_count; i++) {
@@ -168,7 +214,7 @@ static int ramfs_open(void * opaque, const char * path, int flags, int mode) {
     }
 
     if (file) {
-        r = fio_open(ramfs_read, NULL, ramfs_seek, NULL, NULL);
+        r = fio_open(ramfs_read, ramfs_write, ramfs_seek, NULL, NULL);
         if (r > 0) {
             ramfs_fds[r].file_des = file;
             ramfs_fds[r].sb = sb;
@@ -201,9 +247,9 @@ static int ramfs_opendir(void * opaque, char * path) {
     return r;
 }
 
-void register_ramfs(const char * mountpoint, const uint8_t * ramfs) {
+void register_ramfs(const char * mountpoint) {
 //    DBGOUT("Registering ramfs `%s' @ %p\r\n", mountpoint, ramfs);
     ramfs_superblock_t* sb = init_superblock();
-    if(!sb)
+    if(sb)
         register_fs(mountpoint, ramfs_open, ramfs_opendir, (void *) sb);
 }

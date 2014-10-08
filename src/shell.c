@@ -24,6 +24,7 @@ void help_command(int, char **);
 void host_command(int, char **);
 void mmtest_command(int, char **);
 void test_command(int, char **);
+void test_ramfs_command(int, char **);
 
 #define MKCL(n, d) {.name=#n, .fptr=n ## _command, .desc=d}
 
@@ -36,6 +37,7 @@ cmdlist cl[]={
 	MKCL(mmtest, "heap memory allocation test"),
 	MKCL(help, "help"),
 	MKCL(test, "test new function"),
+    MKCL(test_ramfs, "test ramfs"),
 };
 
 int parse_command(char *str, char *argv[]){
@@ -219,6 +221,25 @@ void test_command(int n, char *argv[]) {
     }
 
     host_action(SYS_CLOSE, handle);
+}
+
+void test_ramfs_command(int n, char *argv[]) {
+    int file;
+    char buf[16];
+
+    fio_printf(1, "\r\n");
+    
+    file = fs_open("/ramfs/test", 0, O_RDWR);
+
+    fio_write(file, "TEST!\0", 6);
+    
+    fio_seek(file, 0, SEEK_SET);
+
+    fio_read(file, buf, 6);
+
+    fio_printf(1, "%s\r\n", buf);
+
+    return;
 }
 
 cmdfunc *do_command(const char *cmd){

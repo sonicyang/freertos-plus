@@ -2,5 +2,8 @@ file build/main.elf
 target remote :3333
 
 b main
-
-c
+b register_ramfs
+b fs_open
+b ramfs_read
+b ramfs_write
+b ramfs_open
