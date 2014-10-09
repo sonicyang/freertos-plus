@@ -116,7 +116,7 @@ void fs_free_inode(inode_t* inode){
     return;
 }
 
-inode_t* search_path(const char* path){
+inode_t* get_inode_by_path(const char* path){
     inode_t *ptr, *ptr2;
     uint32_t ret;
 
@@ -136,16 +136,28 @@ inode_t* search_path(const char* path){
             break;
         slash++;
         
-        ptr2 = ptr;
-        ret = ptr->inode_ops.i_lookup(ptr, slash);
-        if(ret)
-            return NULL;
-        ptr = fs_get_inode(ptr->device, ret);
-        fs_free_inode(ptr2);
+        if(ptr->mode && 0x0002){
+            for(uint32_t i = 0; i < MAX_FS; i++){
+                if((fss[i].used) && (fss[i].sb.covered == ptr)){
+                    ptr2 = ptr;
+                    ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
+                    fs_free_inode(ptr2);
+                }
+            }
+        }else{
+            ptr2 = ptr;
+            ret = ptr->inode_ops.i_lookup(ptr, slash);
+            if(ret)
+                return NULL;
+            ptr = fs_get_inode(ptr->device, ret);
+            fs_free_inode(ptr2);
+        }
     }
 
     return ptr; 
 }
+
+/*
 
 int fs_open(const char * path, int flags, int mode) {
     const char * slash;
@@ -199,4 +211,4 @@ int fs_opendir(char* path) {
     
     return -2;
 }
-
+*/

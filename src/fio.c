@@ -88,11 +88,7 @@ struct fddef_t * fio_getfd(int fd) {
 static int fio_is_open_int(int fd) {
     if ((fd < 0) || (fd >= MAX_FDS))
         return 0;
-    int r = !((fio_fds[fd].fdread == NULL) &&
-              (fio_fds[fd].fdwrite == NULL) &&
-              (fio_fds[fd].fdseek == NULL) &&
-              (fio_fds[fd].fdclose == NULL) &&
-              (fio_fds[fd].opaque == NULL));
+    int r = !(fio_fds[fd].inode == NULL);
     return r;
 }
 
@@ -135,24 +131,27 @@ int fio_is_open(int fd) {
     return r;
 }
 
-int fio_open(fdread_t fdread, fdwrite_t fdwrite, fdseek_t fdseek, fdclose_t fdclose, void * opaque) {
+int fio_open(const char * path, int flags, int mode) {
     int fd;
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
     xSemaphoreTake(fio_sem, portMAX_DELAY);
     fd = fio_findfd();
     
     if (fd >= 0) {
-        fio_fds[fd].fdread = fdread;
-        fio_fds[fd].fdwrite = fdwrite;
-        fio_fds[fd].fdseek = fdseek;
-        fio_fds[fd].fdclose = fdclose;
-        fio_fds[fd].opaque = opaque;
+        fio_fds[fd].inode = get_inode_by_path(path);
+        fio_fds[fd].flags = flags;
+        fio_fds[fd].mode = mode;
+        fio_fds[fd].opaque = NULL;
     }
     xSemaphoreGive(fio_sem);
     
+    if(fio_fds[fd] == NULL)
+        return -1;
+
     return fd;
 }
 
+/*
 int fio_opendir(ddread_t ddread, ddseek_t ddseek, ddclose_t ddclose, void * opaque) {
     int dd;
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
@@ -169,22 +168,20 @@ int fio_opendir(ddread_t ddread, ddseek_t ddseek, ddclose_t ddclose, void * opaq
     
     return dd;
 }
+*/
 
 ssize_t fio_read(int fd, void * buf, size_t count) {
     ssize_t r = 0;
 //    DBGOUT("fio_read(%i, %p, %i)\r\n", fd, buf, count);
     if (fio_is_open_int(fd)) {
-        if (fio_fds[fd].fdread) {
-            r = fio_fds[fd].fdread(fio_fds[fd].opaque, buf, count);
-        } else {
-            r = -3;
-        }
+        r = fio_fds[fd].inode->file_ops.read(fio_fds[fd].inode, buf, count, fio_fds[fd].cursor);
     } else {
         r = -2;
     }
     return r;
 }
 
+/*
 ssize_t fio_readdir(int dd, struct dir_entity_t* ent) {
     ssize_t r = 0;
 //    DBGOUT("fio_read(%i, %p, %i)\r\n", fd, buf, count);
@@ -199,6 +196,7 @@ ssize_t fio_readdir(int dd, struct dir_entity_t* ent) {
     }
     return r;
 }
+*/
 
 ssize_t fio_write(int fd, const void * buf, size_t count) {
     ssize_t r = 0;
@@ -230,6 +228,7 @@ off_t fio_seek(int fd, off_t offset, int whence) {
     return r;
 }
 
+/*
 off_t fio_seekdir(int dd, off_t offset) {
     off_t r = 0;
 //    DBGOUT("fio_seek(%i, %i, %i)\r\n", dd, offset, whence);
@@ -244,6 +243,7 @@ off_t fio_seekdir(int dd, off_t offset) {
     }
     return r;
 }
+*/
 
 int fio_close(int fd) {
     int r = 0;

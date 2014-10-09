@@ -17,6 +17,10 @@ typedef struct inode_t{
     }inode_ops;
     uint32_t count;
     uint32_t lock;
+    struct file_operations{
+        ssize_t (*read)(inode_t* node, char* buf, size_t count, off_t offset);
+        ssize_t (*write)(inode_t* node, char* buf, size_t count, off_t offset);
+    }file_ops;
     void* opaque;
 }inode_t;
 
@@ -41,15 +45,22 @@ typedef struct fs_type_t {
     struct fs_type_t* next;
 }fs_type_t;
 
+/*
 typedef int (*fs_open_t)(void * opaque, const char * fname, int flags, int mode);
 typedef int (*fs_opendir_t)(void * opaque, char* path);
-
+*/
 /* Need to be called before using any other fs functions */
 __attribute__((constructor)) void fs_init();
 
 int register_fs(fs_type_t* type);
+inode_t* get_inode_by_path(const char* path);
+inode_t* fs_get_inode(uint32_t device, uint32_t number);
+void fs_free_inode(inode_t* inode);
+
+/*
 int fs_open(const char * path, int flags, int mode);
 int fs_opendir(char * path);
 int fs_list(const char * path, char*** ret_path);
+*/
 
 #endif

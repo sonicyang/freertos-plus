@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <filesystem.h>
 
 enum open_types_t {
     O_RDONLY = 0,
@@ -31,10 +32,16 @@ typedef off_t (*ddseek_t)(void * opaque, off_t offset);
 typedef int (*ddclose_t)(void * opaque);
 
 struct fddef_t {
+    inode_t* inode;
+    uint32_t flags;
+    uint32_t mode;
+    size_t cursor;
+    /*
     fdread_t fdread;
     fdwrite_t fdwrite;
     fdseek_t fdseek;
     fdclose_t fdclose;
+    */
     void * opaque;
 };
 
