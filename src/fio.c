@@ -217,7 +217,6 @@ ssize_t fio_write(int fd, const void * buf, size_t count) {
 off_t fio_seek(int fd, off_t offset, int whence) {
 //    DBGOUT("fio_seek(%i, %i, %i)\r\n", fd, offset, whence);
     if (fio_is_open_int(fd)) {
-        xSemaphoreTake(fio_sem, portMAX_DELAY);
         
         uint32_t size = fio_fds[fd].inode->size;
         uint32_t origin;
@@ -233,7 +232,6 @@ off_t fio_seek(int fd, off_t offset, int whence) {
             origin = size;
             break;
         default:
-            xSemaphoreGive(fio_sem);
             return -1;
         }
 
@@ -244,8 +242,8 @@ off_t fio_seek(int fd, off_t offset, int whence) {
         if (offset > size)
             offset = size;
 
+        xSemaphoreTake(fio_sem, portMAX_DELAY);
         fio_fds[fd].cursor = offset;
-
         xSemaphoreGive(fio_sem);
         return offset;
     } else {
