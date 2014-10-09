@@ -73,9 +73,9 @@ static xSemaphoreHandle fio_sem = NULL;
 
 __attribute__((constructor)) void fio_init() {
     memset(fio_fds, 0, sizeof(fio_fds));
-    fio_fds[0].fdread = stdin_read;
-    fio_fds[1].fdwrite = stdout_write;
-    fio_fds[2].fdwrite = stdout_write;
+    //fio_fds[0].fdread = stdin_read;
+    //fio_fds[1].fdwrite = stdout_write;
+    //fio_fds[2].fdwrite = stdout_write;
     fio_sem = xSemaphoreCreateMutex();
 }
 
@@ -112,6 +112,7 @@ static int fio_findfd() {
     return -1;
 }
 
+/*
 static int fio_finddd() {
     int i;
     
@@ -122,6 +123,7 @@ static int fio_finddd() {
     
     return -1;
 }
+*/
 
 int fio_is_open(int fd) {
     int r = 0;
@@ -145,7 +147,7 @@ int fio_open(const char * path, int flags, int mode) {
     }
     xSemaphoreGive(fio_sem);
     
-    if(fio_fds[fd] == NULL)
+    if(fio_fds[fd].inode == NULL)
         return -1;
 
     return fd;
@@ -174,7 +176,11 @@ ssize_t fio_read(int fd, void * buf, size_t count) {
     ssize_t r = 0;
 //    DBGOUT("fio_read(%i, %p, %i)\r\n", fd, buf, count);
     if (fio_is_open_int(fd)) {
-        r = fio_fds[fd].inode->file_ops.read(fio_fds[fd].inode, buf, count, fio_fds[fd].cursor);
+        if (fio_fds[fd].inode->file_ops.read) {
+            xSemaphoreTake(fio_fds[fd].inode->lock, portMAX_DELAY);
+            r = fio_fds[fd].inode->file_ops.read(fio_fds[fd].inode, buf, count, fio_fds[fd].cursor);
+            xSemaphoreGive(fio_fds[fd].inode->lock);
+        }
     } else {
         r = -2;
     }
@@ -202,8 +208,10 @@ ssize_t fio_write(int fd, const void * buf, size_t count) {
     ssize_t r = 0;
 //    DBGOUT("fio_write(%i, %p, %i)\r\n", fd, buf, count);
     if (fio_is_open_int(fd)) {
-        if (fio_fds[fd].fdwrite) {
-            r = fio_fds[fd].fdwrite(fio_fds[fd].opaque, buf, count);
+        if (fio_fds[fd].inode->file_ops.write) {
+            xSemaphoreTake(fio_fds[fd].inode->lock, portMAX_DELAY);
+            r = fio_fds[fd].inode->file_ops.write(fio_fds[fd].inode, buf, count, fio_fds[fd].cursor);
+            xSemaphoreGive(fio_fds[fd].inode->lock);
         } else {
             r = -3;
         }
@@ -214,18 +222,43 @@ ssize_t fio_write(int fd, const void * buf, size_t count) {
 }
 
 off_t fio_seek(int fd, off_t offset, int whence) {
-    off_t r = 0;
 //    DBGOUT("fio_seek(%i, %i, %i)\r\n", fd, offset, whence);
     if (fio_is_open_int(fd)) {
-        if (fio_fds[fd].fdseek) {
-            r = fio_fds[fd].fdseek(fio_fds[fd].opaque, offset, whence);
-        } else {
-            r = -3;
+        xSemaphoreTake(fio_sem, portMAX_DELAY);
+        
+        uint32_t size = fio_fds[fd].inode->size;
+        uint32_t origin;
+        
+        switch (whence) {
+        case SEEK_SET:
+            origin = 0;
+            break;
+        case SEEK_CUR:
+            origin = fio_fds[fd].cursor;
+            break;
+        case SEEK_END:
+            origin = size;
+            break;
+        default:
+            xSemaphoreGive(fio_sem);
+            return -1;
         }
+
+        offset = origin + offset;
+
+        if (offset < 0)
+            return -1;
+        if (offset > size)
+            offset = size;
+
+        fio_fds[fd].cursor = offset;
+
+        xSemaphoreGive(fio_sem);
+        return offset;
     } else {
-        r = -2;
+        return -2;
     }
-    return r;
+    return -3;
 }
 
 /*
@@ -249,9 +282,10 @@ int fio_close(int fd) {
     int r = 0;
 //    DBGOUT("fio_close(%i)\r\n", fd);
     if (fio_is_open_int(fd)) {
-        if (fio_fds[fd].fdclose)
-            r = fio_fds[fd].fdclose(fio_fds[fd].opaque);
+//        if (fio_fds[fd].fdclose)
+  //          r = fio_fds[fd].fdclose(fio_fds[fd].opaque);
         xSemaphoreTake(fio_sem, portMAX_DELAY);
+        fs_free_inode(fio_fds[fd].inode);
         memset(fio_fds + fd, 0, sizeof(struct fddef_t));
         xSemaphoreGive(fio_sem);
     } else {
@@ -260,6 +294,7 @@ int fio_close(int fd) {
     return r;
 }
 
+/*
 int fio_closedir(int dd) {
     int r = 0;
 //    DBGOUT("fio_close(%i)\r\n", fd);
@@ -274,6 +309,7 @@ int fio_closedir(int dd) {
     }
     return r;
 }
+*/
 
 void fio_set_opaque(int fd, void * opaque) {
     if (fio_is_open_int(fd))
@@ -288,6 +324,26 @@ void fio_set_dir_opaque(int dd, void * opaque) {
 #define stdin_hash 0x0BA00421
 #define stdout_hash 0x7FA08308
 #define stderr_hash 0x7FA058A3
+
+superblock_t dev_superblock = {
+    .device = 0xDEADBEEF;
+    .mounted = 0;
+    .covered = NULL;
+    .block_size = 0;
+    .type_hash = devfs_r.type_name_hash;
+
+    struct superblock_operations{
+        int (*s_read_inode)(struct inode_t* inode);
+        int (*s_write_inode)(struct inode_t* inode);
+        int (*s_umount)(void);
+    }superblock_ops;
+    void* opaque;
+};
+
+int devfs_read_superblock(void* opaque, struct superblock_t* sb){
+    sb = &dev_superblock;
+    return 0;
+}
 
 static int devfs_open(void * opaque, const char * path, int flags, int mode) {
     uint32_t h = hash_djb2((const uint8_t *) path, -1);
@@ -312,7 +368,9 @@ static int devfs_open(void * opaque, const char * path, int flags, int mode) {
     return -1;
 }
 
+/*
 void register_devfs() {
     DBGOUT("Registering devfs.\r\n");
     register_fs("dev", devfs_open, NULL, NULL);
 }
+*/

@@ -158,10 +158,11 @@ int main()
 	fio_init();
     
     register_fs(&ramfs_r);
+    register_fs(&devfs_r);
     fs_mount(NULL, ramfs_r.type_name_hash, NULL);
 
-	register_romfs("romfs", &_sromfs);
-	register_ramfs("ramfs");
+//	register_romfs("romfs", &_sromfs);
+//	register_ramfs("ramfs");
 	
 	/* Create the queue used by the serial task.  Messages for write to
 	 * the RS232. */

@@ -63,13 +63,22 @@ off_t fio_seekdir(int fd, off_t offset);
 ssize_t fio_readdir(int dd, struct dir_entity_t* ent);
 
 int fio_is_open(int fd);
-int fio_open(fdread_t, fdwrite_t, fdseek_t, fdclose_t, void * opaque);
+int fio_open(const char * path, int flags, int mode);
 ssize_t fio_read(int fd, void * buf, size_t count);
 ssize_t fio_write(int fd, const void * buf, size_t count);
 off_t fio_seek(int fd, off_t offset, int whence);
 int fio_close(int fd);
 void fio_set_opaque(int fd, void * opaque);
 int fio_list(const char* mount, char*** path);
+
+int devfs_read_superblock(void* opaque, struct superblock_t* sb);
+
+fs_type_t devfs_r = {
+    .type_name_hash = 164136743;
+    .rsbcb = devfs_read_superblock;
+    .require_dev = 0;
+    .next = NULL;
+};
 
 void register_devfs();
 
