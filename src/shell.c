@@ -62,7 +62,7 @@ int parse_command(char *str, char *argv[]){
 }
 
 void ls_command(int n, char *argv[]){
-    uint8_t listFlag = 0;
+/*    uint8_t listFlag = 0;
     struct dir_entity_t ent;
     int dir, c;
 
@@ -118,13 +118,13 @@ void ls_command(int n, char *argv[]){
             fio_closedir(dir);
         }
     }
-    return;
+    return;*/
 }
 
 int filedump(const char* filename){
 	char buf[128];
 
-	int fd=fs_open(filename, 0, O_RDONLY);
+	int fd=fio_open(filename, 0, O_RDONLY);
 
 	if(fd==OPENFAIL)
 		return 0;
@@ -224,6 +224,7 @@ void test_command(int n, char *argv[]) {
 }
 
 void test_ramfs_command(int n, char *argv[]) {
+    /*
     int file;
     char buf[16];
 
@@ -239,7 +240,7 @@ void test_ramfs_command(int n, char *argv[]) {
 
     fio_printf(1, "%s\r\n", buf);
 
-    return;
+    return;*/
 }
 
 cmdfunc *do_command(const char *cmd){

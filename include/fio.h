@@ -73,13 +73,6 @@ int fio_list(const char* mount, char*** path);
 
 int devfs_read_superblock(void* opaque, struct superblock_t* sb);
 
-fs_type_t devfs_r = {
-    .type_name_hash = 164136743;
-    .rsbcb = devfs_read_superblock;
-    .require_dev = 0;
-    .next = NULL;
-};
-
 void register_devfs();
 
 #endif

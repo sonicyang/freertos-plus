@@ -7,7 +7,7 @@
 #include <hash-djb2.h>
 
 #define MAX_FS 16
-#define MAX_INODE_CACHE_SIZE 128
+#define MAX_INODE_CACHE_SIZE 16
 #define MAX_FS_DEPTH 16
 
 typedef struct fs_t {
@@ -100,8 +100,12 @@ inode_t* fs_get_inode(uint32_t device, uint32_t number){
                 if(inode_pool[i].count == 0){
                     inode_pool[i].device = device;
                     inode_pool[i].number = number;
-                    fss[i].sb.superblock_ops.s_read_inode(&inode_pool[i]);
+                    if(fss[i].sb.superblock_ops.s_read_inode(&inode_pool[i])){
+                        return NULL;
+                    }
                     inode_pool[i].count++;
+                    if(inode_pool[i].lock != NULL)
+                        inode_pool[i].lock = xSemaphoreCreateMutex();
                     return inode_pool + i;
                 }
             }

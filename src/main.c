@@ -11,8 +11,8 @@
 /* Filesystem includes */
 #include "filesystem.h"
 #include "fio.h"
-#include "romfs.h"
-#include "ramfs.h"
+//#include "romfs.h"
+//#include "ramfs.h"
 
 #include "clib.h"
 #include "shell.h"
@@ -157,9 +157,9 @@ int main()
 	fs_init();
 	fio_init();
     
-    register_fs(&ramfs_r);
-    register_fs(&devfs_r);
-    fs_mount(NULL, ramfs_r.type_name_hash, NULL);
+    //register_fs(&ramfs_r);
+    register_devfs();
+    //fs_mount(NULL, ramfs_r.type_name_hash, NULL);
 
 //	register_romfs("romfs", &_sromfs);
 //	register_ramfs("ramfs");
