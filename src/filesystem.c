@@ -78,6 +78,7 @@ int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque){
                 return -3;
             ptr->used = 1;
             ptr->sb.covered = mountpoint;
+            mountpoint->mode |= 2; //set mountpoint as covered
             if(mountpoint)
                 mountpoint->count++;
             return it->rsbcb(opaque, &ptr->sb);
@@ -104,7 +105,7 @@ inode_t* fs_get_inode(uint32_t device, uint32_t number){
                         return NULL;
                     }
                     inode_pool[i].count++;
-                    if(inode_pool[i].lock != NULL)
+                    if(inode_pool[i].lock == NULL)
                         inode_pool[i].lock = xSemaphoreCreateMutex();
                     return inode_pool + i;
                 }
@@ -120,23 +121,33 @@ void fs_free_inode(inode_t* inode){
     return;
 }
 
-inode_t* get_inode_by_path(const char* path){
+int get_inode_by_path(const char* path, inode_t** inode){
     inode_t *ptr, *ptr2;
-    uint32_t ret;
+    uint32_t ret, r_depth, c_depth;
 
-    const char * slash;
+    const char * slash = path;
+    r_depth = 0;
+    while(*slash){
+        if((slash[0] == '/') && (slash[1] != '\0'))
+            r_depth++;
+        slash++;
+    }
+    c_depth = 0;
+
+
     slash = strchr(path, '/');
     slash++;
     
     for(uint32_t i = 0; i < MAX_FS; i++){
         if((fss[i].used) && (fss[i].sb.covered == NULL)){
             ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
+            c_depth++;
         }
     }
 
     while(1){
         slash = strchr(slash, '/');
-        if(!slash)
+        if(!slash || slash[1] == '\0')
             break;
         slash++;
         
@@ -145,20 +156,28 @@ inode_t* get_inode_by_path(const char* path){
                 if((fss[i].used) && (fss[i].sb.covered == ptr)){
                     ptr2 = ptr;
                     ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
+                    c_depth++;
                     fs_free_inode(ptr2);
                 }
             }
         }else{
             ptr2 = ptr;
             ret = ptr->inode_ops.i_lookup(ptr, slash);
-            if(ret)
-                return NULL;
+            if(ret){
+                *inode = ptr;
+                if(r_depth - c_depth > 1)
+                    return -2;
+                else
+                    return -1;
+            }
             ptr = fs_get_inode(ptr->device, ret);
+            c_depth++;
             fs_free_inode(ptr2);
         }
     }
-
-    return ptr; 
+    
+    *inode = ptr;
+    return 0; 
 }
 
 /*

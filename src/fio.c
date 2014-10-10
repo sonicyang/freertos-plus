@@ -127,23 +127,45 @@ int fio_is_open(int fd) {
 }
 
 int fio_open(const char * path, int flags, int mode) {
-    int fd;
-//    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
-    xSemaphoreTake(fio_sem, portMAX_DELAY);
-    fd = fio_findfd();
-    
-    if (fd >= 0) {
-        fio_fds[fd].inode = get_inode_by_path(path);
-        fio_fds[fd].flags = flags;
-        fio_fds[fd].mode = mode;
-        fio_fds[fd].opaque = NULL;
-    }
-    xSemaphoreGive(fio_sem);
-    
-    if(fio_fds[fd].inode == NULL)
-        return -1;
+    int fd, ret;
+    inode_t* inode;
+    const char* fn = path + strlen(path) - 1;
+    char buf[64];
 
-    return fd;
+    ret = 0;
+    while(*fn == '/')fn--, ret++;
+    while(*fn != '/')fn--;
+    fn++;
+    strncpy(buf, fn, strlen(fn) - ret);
+
+//    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
+    ret = get_inode_by_path(path, &inode);
+    if(ret == -1){
+        if(inode->inode_ops.i_create){
+            if(inode->inode_ops.i_create(inode, fn)){
+                return -3;       
+            }else{
+                return fio_open(path, flags, mode);//Use Recursive to retrive newly added inode
+            }
+        }else{
+            return -2;
+        }
+    }else if(ret == 0){
+        xSemaphoreTake(fio_sem, portMAX_DELAY);
+        fd = fio_findfd();
+        
+        if (fd >= 0) {
+            fio_fds[fd].inode = inode;
+            fio_fds[fd].flags = flags;
+            fio_fds[fd].mode = mode;
+            fio_fds[fd].opaque = NULL;
+        }
+        xSemaphoreGive(fio_sem);
+
+        return fd;
+    }else{
+        return -1;
+    }
 }
 
 /*
@@ -323,6 +345,7 @@ inode_t devfs_stdin_node = {
     .block_size = 0,
     .size = 0,
     .inode_ops = {
+        NULL,
         NULL
     },
     0,
@@ -341,6 +364,7 @@ inode_t devfs_stdout_node = {
     .block_size = 0,
     .size = 0,
     .inode_ops = {
+        NULL,
         NULL
     },
     0,
@@ -359,6 +383,7 @@ inode_t devfs_stderr_node = {
     .block_size = 0,
     .size = 0,
     .inode_ops = {
+        NULL,
         NULL
     },
     0,
@@ -369,6 +394,7 @@ inode_t devfs_stderr_node = {
     },
     NULL
 };
+
 int devfs_root_lookup(struct inode_t* node, const char* path){
     const char* slash = strchr(path, '/');
     uint32_t hash = hash_djb2((uint8_t*)path, (uint32_t)(slash - path));
@@ -391,6 +417,7 @@ inode_t devfs_root_node = {
     .block_size = 0,
     .size = 3,
     .inode_ops = {
+        NULL,
         devfs_root_lookup
     },
     0,

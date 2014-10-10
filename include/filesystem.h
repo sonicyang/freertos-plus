@@ -16,6 +16,7 @@ typedef struct inode_t{
     uint32_t block_size;
     uint32_t size;
     struct inode_operations{
+        int (*i_create)(struct inode_t* node, const char* path);
         int (*i_lookup)(struct inode_t* node, const char* path);
     }inode_ops;
     uint32_t count;
@@ -56,7 +57,8 @@ typedef int (*fs_opendir_t)(void * opaque, char* path);
 __attribute__((constructor)) void fs_init();
 
 int register_fs(fs_type_t* type);
-inode_t* get_inode_by_path(const char* path);
+int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque);
+int get_inode_by_path(const char* path, inode_t** inode);
 inode_t* fs_get_inode(uint32_t device, uint32_t number);
 void fs_free_inode(inode_t* inode);
 

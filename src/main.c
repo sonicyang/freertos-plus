@@ -12,7 +12,7 @@
 #include "filesystem.h"
 #include "fio.h"
 //#include "romfs.h"
-//#include "ramfs.h"
+#include "ramfs.h"
 
 #include "clib.h"
 #include "shell.h"
@@ -159,7 +159,8 @@ int main()
     
     //register_fs(&ramfs_r);
     register_devfs();
-    //fs_mount(NULL, ramfs_r.type_name_hash, NULL);
+    register_ramfs();
+    fs_mount(NULL, RAMFS_TYPE, NULL);
 
 //	register_romfs("romfs", &_sromfs);
 //	register_ramfs("ramfs");

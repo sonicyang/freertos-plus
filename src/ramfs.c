@@ -16,16 +16,24 @@ typedef struct ramfs_fds_t {
     uint32_t cursor;
 }ramfs_fds_t;
 
-static struct ramfs_fds_t ramfs_fds[MAX_FDS];
-static struct ramfs_fds_t ramfs_dds[MAX_FDS];
+static uint32_t device_count = 0xAAAA; //A magic Number
+
+//static struct ramfs_fds_t ramfs_fds[MAX_FDS];
+//static struct ramfs_fds_t ramfs_dds[MAX_FDS];
+
+ramfs_superblock_t* ramfs_sb_list = NULL;
 
 static ramfs_superblock_t* init_superblock(void){
     ramfs_superblock_t* ret = (ramfs_superblock_t*)calloc(sizeof(ramfs_superblock_t), 1);
+    ret->device = device_count++;
     ret->inode_count = 0; 
     ret->block_count = 0;
     ret->inode_list = NULL;
+    ret->next = ramfs_sb_list;
+    ramfs_sb_list = ret;
     return ret;
 }
+
 
 /*
 static void deinit_superblock(ramfs_superblock_t* sb){
@@ -35,13 +43,17 @@ static void deinit_superblock(ramfs_superblock_t* sb){
 }
 */
 
-static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblock_t* sb){
+static ramfs_inode_t* add_inode(const char* filename, ramfs_superblock_t* sb){
     ramfs_inode_t* ret = (ramfs_inode_t*)calloc(sizeof(ramfs_inode_t), 1);
-    ret->hash = h;
+    if(!ret)
+        return NULL;
+    ret->hash = hash_djb2((uint8_t*)filename, -1);
+    ret->device = sb->device;
     strcpy(ret->filename, filename);
     ret->attribute = 0;
     ret->data_length = 0;
     ret->block_count = 0;
+    ret->number = sb->inode_count;
 
     ramfs_inode_t** src = sb->inode_list;
     sb->inode_list = (ramfs_inode_t**)calloc(sizeof(ramfs_inode_t*), sb->inode_count + 1);
@@ -52,6 +64,7 @@ static ramfs_inode_t* add_inode(uint32_t h, const char* filename, ramfs_superblo
     return ret;
 }
 
+/*
 static uint32_t add_block(ramfs_superblock_t* sb){
     ramfs_block_t* ret = (ramfs_block_t*)calloc(sizeof(ramfs_block_t), 1);
 
@@ -130,7 +143,9 @@ static ssize_t ramfs_read(void * opaque, void * buf, size_t count) {
 
     return pCount;
 }
+*/
 
+/*
 static ssize_t ramfs_readdir(void * opaque, dir_entity_t* ent) {
     ramfs_fds_t * dir = (ramfs_fds_t *) opaque;
     uint32_t* file_hashes = dir->file_des->blocks + 1;
@@ -246,10 +261,105 @@ static int ramfs_opendir(void * opaque, char * path) {
     }
     return r;
 }
+*/
+
+int ramfs_i_create(struct inode_t* inode, const char* fn){
+    ramfs_inode_t* p_inode,* c_inode; 
+    ramfs_superblock_t* ptr = ramfs_sb_list;
+    while(ptr){
+        if(ptr->device == inode->device){
+            if(inode->number >= ptr->inode_count)
+               return -1;
+
+            p_inode = ptr->inode_list[inode->number];
+            if(!(p_inode->attribute & 1))
+                return -2;
+
+            c_inode = add_inode(fn, ptr);
+            p_inode->blocks[p_inode->block_count++] = c_inode->hash;
+            return 0;
+        }
+        ptr = ptr->next;
+    }
+    return -4;
+}
+
+int ramfs_i_lookup(struct inode_t* inode, const char* path){
+    const char* slash = strchr(path, '/');
+    uint32_t hash = hash_djb2((uint8_t*)path, (uint32_t)(slash - path));
+
+    ramfs_inode_t* ramfs_inode; 
+    ramfs_superblock_t* ptr = ramfs_sb_list;
+    while(ptr){
+        if(ptr->device == inode->device){
+            if(inode->number >= ptr->inode_count)
+               return -1;
+
+            ramfs_inode = ptr->inode_list[inode->number];
+            if(!(ramfs_inode->attribute & 1))
+                return -2;
+            for(uint32_t i = 0; i < ramfs_inode->block_count; i++){
+               if(ramfs_inode->blocks[i] == hash){
+                    for(uint32_t j = 0; j < ptr->inode_count; j++){
+                        if(ptr->inode_list[i]->hash == hash){
+                            return i; 
+                        }
+                    }
+               }
+            }
+            return -3;
+        }
+        ptr = ptr->next;
+    }
+    return -4;
+}
+
+int ramfs_read_inode(inode_t* inode){
+    ramfs_superblock_t* ptr = ramfs_sb_list;
+    while(ptr){
+        if(ptr->device == inode->device){
+            if(inode->number >= ptr->inode_count)
+               return -1;
+            inode->size = ptr->inode_list[inode->number]->data_length;
+            inode->block_size = BLOCK_SIZE;
+            //inode->inode_ops
+            //inode->file_ops
+
+            return 0;
+        }
+        ptr = ptr->next;
+    }
+
+    return -2;
+}
+
+int ramfs_read_superblock(void* opaque, struct superblock_t* sb){
+    ramfs_superblock_t* ramfs_sb = init_superblock();
+    ramfs_inode_t* ramfs_in;
+    if(ramfs_sb){
+        ramfs_in = add_inode("", ramfs_sb);
+        ramfs_in->attribute = 1;
+        if(ramfs_in){
+            sb->device = ramfs_sb->device;
+            sb->mounted = ramfs_in->number;
+            sb->block_size = BLOCK_SIZE;
+            sb->type_hash = RAMFS_TYPE;
+            sb->superblock_ops.s_read_inode = ramfs_read_inode;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+static fs_type_t ramfs_r = {
+    .type_name_hash = RAMFS_TYPE,
+    .rsbcb = ramfs_read_superblock,
+    .require_dev = 0,
+    .next = NULL,
+};
 
 void register_ramfs(const char * mountpoint) {
 //    DBGOUT("Registering ramfs `%s' @ %p\r\n", mountpoint, ramfs);
-    ramfs_superblock_t* sb = init_superblock();
-    if(sb)
-        register_fs(mountpoint, ramfs_open, ramfs_opendir, (void *) sb);
+    register_fs(&ramfs_r);
 }
