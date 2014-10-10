@@ -137,6 +137,7 @@ int fio_open(const char * path, int flags, int mode) {
     while(*fn != '/')fn--;
     fn++;
     strncpy(buf, fn, strlen(fn) - ret);
+    buf[strlen(fn) - ret] = '\0';
 
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
     ret = get_inode_by_path(path, &inode);
@@ -194,6 +195,7 @@ ssize_t fio_read(int fd, void * buf, size_t count) {
         if (fio_fds[fd].inode->file_ops.read) {
             xSemaphoreTake(fio_fds[fd].inode->lock, portMAX_DELAY);
             r = fio_fds[fd].inode->file_ops.read(fio_fds[fd].inode, buf, count, fio_fds[fd].cursor);
+            fio_fds[fd].cursor += r;
             xSemaphoreGive(fio_fds[fd].inode->lock);
         }
     } else {
@@ -226,6 +228,7 @@ ssize_t fio_write(int fd, const void * buf, size_t count) {
         if (fio_fds[fd].inode->file_ops.write) {
             xSemaphoreTake(fio_fds[fd].inode->lock, portMAX_DELAY);
             r = fio_fds[fd].inode->file_ops.write(fio_fds[fd].inode, buf, count, fio_fds[fd].cursor);
+            fio_fds[fd].cursor += r;
             xSemaphoreGive(fio_fds[fd].inode->lock);
         } else {
             r = -3;

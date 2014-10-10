@@ -62,12 +62,16 @@ int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque){
     fs_t* ptr = NULL;
 
     for (i = 0; i < MAX_FS; i++) 
-        if (!fss[i].used) 
+        if (!fss[i].used){ 
             ptr = fss + i;
+            break;
+        }
     
     for (i = 0; i < MAX_FS; i++) 
-        if (fss[i].sb.covered == mountpoint) 
+        if ((fss[i].sb.covered == mountpoint) && (mountpoint != NULL)){ 
             ptr = NULL;
+            break;
+        }
 
     if(!ptr)
         return -2;
@@ -78,9 +82,10 @@ int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque){
                 return -3;
             ptr->used = 1;
             ptr->sb.covered = mountpoint;
-            mountpoint->mode |= 2; //set mountpoint as covered
-            if(mountpoint)
+            if(mountpoint){
+                mountpoint->mode |= 2; //set mountpoint as covered
                 mountpoint->count++;
+            }
             return it->rsbcb(opaque, &ptr->sb);
         }
     } 
@@ -134,17 +139,15 @@ int get_inode_by_path(const char* path, inode_t** inode){
     }
     c_depth = 0;
 
-
-    slash = strchr(path, '/');
-    slash++;
-    
     for(uint32_t i = 0; i < MAX_FS; i++){
         if((fss[i].used) && (fss[i].sb.covered == NULL)){
             ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
             c_depth++;
+            break;
         }
     }
-
+    
+    slash = path;
     while(1){
         slash = strchr(slash, '/');
         if(!slash || slash[1] == '\0')

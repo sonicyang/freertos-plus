@@ -224,13 +224,13 @@ void test_command(int n, char *argv[]) {
 }
 
 void test_ramfs_command(int n, char *argv[]) {
-    /*
+    
     int file;
     char buf[16];
 
     fio_printf(1, "\r\n");
     
-    file = fs_open("/ramfs/test", 0, O_RDWR);
+    file = fio_open("/test", 0, O_RDWR);
 
     fio_write(file, "TEST!\0", 6);
     
@@ -240,7 +240,7 @@ void test_ramfs_command(int n, char *argv[]) {
 
     fio_printf(1, "%s\r\n", buf);
 
-    return;*/
+    return;
 }
 
 cmdfunc *do_command(const char *cmd){
