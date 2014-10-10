@@ -240,6 +240,8 @@ void test_ramfs_command(int n, char *argv[]) {
 
     fio_printf(1, "%s\r\n", buf);
 
+    fio_close(file);
+
     return;
 }
 
