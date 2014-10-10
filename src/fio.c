@@ -144,8 +144,10 @@ int fio_open(const char * path, int flags, int mode) {
     if(ret == -1){
         if(inode->inode_ops.i_create){
             if(inode->inode_ops.i_create(inode, fn)){
+                fs_free_inode(inode);
                 return -3;       
             }else{
+                fs_free_inode(inode);
                 return fio_open(path, flags, mode);//Use Recursive to retrive newly added inode
             }
         }else{
