@@ -102,17 +102,17 @@ inode_t* fs_get_inode(uint32_t device, uint32_t number){
 
     for(uint32_t i = 0; i < MAX_FS; i++){
         if((fss[i].used) && (fss[i].sb.device == device)){
-            for(uint32_t i = 0; i < MAX_INODE_CACHE_SIZE; i++){
-                if(inode_pool[i].count == 0){
-                    inode_pool[i].device = device;
-                    inode_pool[i].number = number;
-                    if(fss[i].sb.superblock_ops.s_read_inode(&inode_pool[i])){
+            for(uint32_t j = 0; j < MAX_INODE_CACHE_SIZE; j++){
+                if(inode_pool[j].count == 0){
+                    inode_pool[j].device = device;
+                    inode_pool[j].number = number;
+                    if(fss[i].sb.superblock_ops.s_read_inode(&inode_pool[j])){
                         return NULL;
                     }
-                    inode_pool[i].count++;
-                    if(inode_pool[i].lock == NULL)
-                        inode_pool[i].lock = xSemaphoreCreateMutex();
-                    return inode_pool + i;
+                    inode_pool[j].count++;
+                    if(inode_pool[j].lock == NULL)
+                        inode_pool[j].lock = xSemaphoreCreateMutex();
+                    return inode_pool + j;
                 }
             }
         }
@@ -128,7 +128,8 @@ void fs_free_inode(inode_t* inode){
 
 int get_inode_by_path(const char* path, inode_t** inode){
     inode_t *ptr, *ptr2;
-    uint32_t ret, r_depth, c_depth;
+    int32_t ret;
+    uint32_t r_depth, c_depth;
 
     const char * slash = path;
     r_depth = 0;
@@ -137,6 +138,7 @@ int get_inode_by_path(const char* path, inode_t** inode){
             r_depth++;
         slash++;
     }
+    r_depth++;
     c_depth = 0;
 
     for(uint32_t i = 0; i < MAX_FS; i++){
@@ -166,7 +168,7 @@ int get_inode_by_path(const char* path, inode_t** inode){
         }else{
             ptr2 = ptr;
             ret = ptr->inode_ops.i_lookup(ptr, slash);
-            if(ret){
+            if(ret < 0){
                 *inode = ptr;
                 if(r_depth - c_depth > 1)
                     return -2;

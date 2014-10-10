@@ -316,7 +316,7 @@ int ramfs_i_create(struct inode_t* inode, const char* fn){
 
 int ramfs_i_lookup(struct inode_t* inode, const char* path){
     const char* slash = strchr(path, '/');
-    uint32_t hash = hash_djb2((uint8_t*)path, (uint32_t)(slash - path));
+    uint32_t hash = hash_djb2((uint8_t*)path, (slash == NULL ? -1 : (slash - path)));
 
     ramfs_inode_t* ramfs_inode; 
     ramfs_superblock_t* ptr = ramfs_sb_list;
@@ -331,8 +331,8 @@ int ramfs_i_lookup(struct inode_t* inode, const char* path){
             for(uint32_t i = 0; i < ramfs_inode->block_count; i++){
                if(ramfs_inode->blocks[i] == hash){
                     for(uint32_t j = 0; j < ptr->inode_count; j++){
-                        if(ptr->inode_list[i]->hash == hash){
-                            return i; 
+                        if(ptr->inode_list[j]->hash == hash){
+                            return j; 
                         }
                     }
                }
