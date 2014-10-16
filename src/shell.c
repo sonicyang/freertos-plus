@@ -229,8 +229,10 @@ void test_ramfs_command(int n, char *argv[]) {
     char buf[16];
 
     fio_printf(1, "\r\n");
+
+    fio_mkdir("/tmp/");
     
-    file = fio_open("/test", 0, O_RDWR);
+    file = fio_open("/tmp/test", 0, O_RDWR);
 
     fio_write(file, "TEST!\0", 6);
     

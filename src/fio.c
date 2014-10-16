@@ -81,7 +81,7 @@ int fio_open(const char * path, int flags, int mode) {
     fn_buf[strlen(fn) - ret] = '\0';
 
     strncpy(buf, path, fn - path);
-    buf[fn - path+ 1] = '\0';
+    buf[fn - path] = '\0';
 
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
     ret = get_inode_by_path(buf, &p_inode);
@@ -121,6 +121,49 @@ int fio_open(const char * path, int flags, int mode) {
     }
 }
 
+int fio_mkdir(const char * path) {
+    int ret, target_node;
+    inode_t* p_inode;
+    const char* fn = path + strlen(path) - 1;
+    char buf[64], fn_buf[128];
+
+    ret = 0;
+    while(*fn == '/')fn--, ret++;
+    while(*fn != '/')fn--;
+    fn++;
+    strncpy(fn_buf, fn, strlen(fn) - ret);
+    fn_buf[strlen(fn) - ret] = '\0';
+
+    strncpy(buf, path, fn - path);
+    buf[fn - path] = '\0';
+
+//    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
+    ret = get_inode_by_path(buf, &p_inode);
+    if(!ret){
+        target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+
+        if(!target_node){
+            return -1;
+        }else{
+            if(p_inode->inode_ops.i_mkdir){
+                if(p_inode->inode_ops.i_mkdir(p_inode, fn_buf)){
+                    fs_free_inode(p_inode);
+                    return -3;       
+                }else{
+                    target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+                }
+            }else{
+                fs_free_inode(p_inode);
+                return -2;
+            }
+        }
+
+        fs_free_inode(p_inode);
+        return 0;
+    }else{
+        return -1;
+    }
+}
 /*
 int fio_opendir(ddread_t ddread, ddseek_t ddseek, ddclose_t ddclose, void * opaque) {
     int dd;

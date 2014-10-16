@@ -29,6 +29,7 @@ inode_t devfs_stdin_node = {
     .size = 0,
     .inode_ops = {
         NULL,
+        NULL,
         NULL
     },
     0,
@@ -47,6 +48,7 @@ inode_t devfs_stdout_node = {
     .block_size = 0,
     .size = 0,
     .inode_ops = {
+        NULL,
         NULL,
         NULL
     },
@@ -67,6 +69,7 @@ inode_t devfs_stderr_node = {
     .size = 0,
     .inode_ops = {
         NULL,
+        NULL,
         NULL
     },
     0,
@@ -86,7 +89,8 @@ inode_t devfs_root_node = {
     .size = 3,
     .inode_ops = {
         NULL,
-        devfs_root_lookup
+        devfs_root_lookup,
+        NULL
     },
     0,
     NULL,

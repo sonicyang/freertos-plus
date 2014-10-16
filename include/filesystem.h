@@ -18,6 +18,7 @@ typedef struct inode_t{
     struct inode_operations{
         int (*i_create)(struct inode_t* node, const char* path);
         int (*i_lookup)(struct inode_t* node, const char* path);
+        int (*i_mkdir)(struct inode_t* node, const char* path);
     }inode_ops;
     uint32_t count;
     xSemaphoreHandle lock;

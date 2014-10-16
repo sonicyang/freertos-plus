@@ -314,6 +314,27 @@ int ramfs_i_create(struct inode_t* inode, const char* fn){
     return -4;
 }
 
+int ramfs_i_mkdir(struct inode_t* inode, const char* fn){
+    ramfs_inode_t* p_inode,* c_inode; 
+    ramfs_superblock_t* ptr = ramfs_sb_list;
+    while(ptr){
+        if(ptr->device == inode->device){
+            if(inode->number >= ptr->inode_count)
+               return -1;
+
+            p_inode = ptr->inode_list[inode->number];
+            if(!(p_inode->attribute & 1))
+                return -2;
+
+            c_inode = add_inode(fn, ptr);
+            c_inode->attribute |= 1; //Set as Floder
+            p_inode->blocks[p_inode->block_count++] = c_inode->hash;
+            return 0;
+        }
+        ptr = ptr->next;
+    }
+    return -4;
+}
 int ramfs_i_lookup(struct inode_t* inode, const char* path){
     const char* slash = strchr(path, '/');
     uint32_t hash = hash_djb2((uint8_t*)path, (slash == NULL ? -1 : (slash - path)));
@@ -329,7 +350,9 @@ int ramfs_i_lookup(struct inode_t* inode, const char* path){
             if(!(ramfs_inode->attribute & 1))
                 return -2;
             for(uint32_t i = 0; i < ramfs_inode->block_count; i++){
-               if(ramfs_inode->blocks[i] == hash){
+                if(!(ramfs_inode->attribute && 1))
+                    return -1;
+                if(ramfs_inode->blocks[i] == hash){
                     for(uint32_t j = 0; j < ptr->inode_count; j++){
                         if(ptr->inode_list[j]->hash == hash){
                             return j; 
@@ -354,6 +377,7 @@ int ramfs_read_inode(inode_t* inode){
             inode->block_size = BLOCK_SIZE;
             inode->inode_ops.i_lookup = ramfs_i_lookup;
             inode->inode_ops.i_create = ramfs_i_create;
+            inode->inode_ops.i_mkdir = ramfs_i_mkdir;
             inode->file_ops.read = ramfs_read;
             inode->file_ops.write = ramfs_write;
 
