@@ -168,8 +168,8 @@ int fio_mkdir(const char * path) {
         return -1;
     }
 }
-/*
-int fio_opendir(ddread_t ddread, ddseek_t ddseek, ddclose_t ddclose, void * opaque) {
+
+int fio_opendir(const char* path) {
     int dd;
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
     xSemaphoreTake(fio_sem, portMAX_DELAY);
@@ -185,7 +185,7 @@ int fio_opendir(ddread_t ddread, ddseek_t ddseek, ddclose_t ddclose, void * opaq
     
     return dd;
 }
-*/
+
 
 ssize_t fio_read(int fd, void * buf, size_t count) {
     ssize_t r = 0;
