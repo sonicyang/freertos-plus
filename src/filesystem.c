@@ -7,7 +7,7 @@
 #include <hash-djb2.h>
 
 #define MAX_FS 16
-#define MAX_INODE_CACHE_SIZE 16
+#define MAX_INODE_CACHE_SIZE 8
 #define MAX_FS_DEPTH 16
 
 typedef struct fs_t {

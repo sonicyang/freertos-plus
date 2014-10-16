@@ -9,7 +9,6 @@
 #define MAX_INODE_BLOCK_COUNT 32
 #define BLOCK_SIZE 64
 
-
 typedef struct ramfs_inode_t{
     uint32_t hash;
     uint32_t device;
@@ -35,7 +34,6 @@ typedef struct ramfs_superblock_t{
 }ramfs_superblock_t;
 
 void register_ramfs();
-ramfs_inode_t* ramfs_get_file_by_hash(const ramfs_superblock_t * romfs, uint32_t h);
 
 #endif
 
