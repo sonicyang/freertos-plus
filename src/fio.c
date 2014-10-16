@@ -127,43 +127,52 @@ int fio_is_open(int fd) {
 }
 
 int fio_open(const char * path, int flags, int mode) {
-    int fd, ret;
-    inode_t* inode;
+    int fd, ret, target_node;
+    inode_t* p_inode;
     const char* fn = path + strlen(path) - 1;
-    char buf[64];
+    char buf[64], fn_buf[128];
 
     ret = 0;
     while(*fn == '/')fn--, ret++;
     while(*fn != '/')fn--;
     fn++;
-    strncpy(buf, fn, strlen(fn) - ret);
-    buf[strlen(fn) - ret] = '\0';
+    strncpy(fn_buf, fn, strlen(fn) - ret);
+    fn_buf[strlen(fn) - ret] = '\0';
+
+    strncpy(buf, path, fn - path);
+    buf[fn - path+ 1] = '\0';
 
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
-    ret = get_inode_by_path(path, &inode);
-    if(ret == -1){
-        if(inode->inode_ops.i_create){
-            if(inode->inode_ops.i_create(inode, fn)){
-                fs_free_inode(inode);
-                return -3;       
+    ret = get_inode_by_path(buf, &p_inode);
+    if(!ret){
+        target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+
+        if(target_node){
+            if(p_inode->inode_ops.i_create){
+                if(p_inode->inode_ops.i_create(p_inode, fn_buf)){
+                    fs_free_inode(p_inode);
+                    return -3;       
+                }else{
+                    target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+                }
             }else{
-                fs_free_inode(inode);
-                return fio_open(path, flags, mode);//Use Recursive to retrive newly added inode
+                fs_free_inode(p_inode);
+                return -2;
             }
-        }else{
-            return -2;
         }
-    }else if(ret == 0){
+        
         xSemaphoreTake(fio_sem, portMAX_DELAY);
         fd = fio_findfd();
-        
+            
         if (fd >= 0) {
-            fio_fds[fd].inode = inode;
+            fio_fds[fd].inode = fs_get_inode(p_inode->device, target_node);
             fio_fds[fd].flags = flags;
             fio_fds[fd].mode = mode;
             fio_fds[fd].opaque = NULL;
         }
         xSemaphoreGive(fio_sem);
+
+        fs_free_inode(p_inode);
 
         return fd;
     }else{

@@ -129,22 +129,12 @@ void fs_free_inode(inode_t* inode){
 int get_inode_by_path(const char* path, inode_t** inode){
     inode_t *ptr, *ptr2;
     int32_t ret;
-    uint32_t r_depth, c_depth;
 
     const char * slash = path;
-    r_depth = 0;
-    while(*slash){
-        if((slash[0] == '/') && (slash[1] != '\0'))
-            r_depth++;
-        slash++;
-    }
-    r_depth++;
-    c_depth = 0;
 
     for(uint32_t i = 0; i < MAX_FS; i++){
         if((fss[i].used) && (fss[i].sb.covered == NULL)){
             ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
-            c_depth++;
             break;
         }
     }
@@ -161,7 +151,6 @@ int get_inode_by_path(const char* path, inode_t** inode){
                 if((fss[i].used) && (fss[i].sb.covered == ptr)){
                     ptr2 = ptr;
                     ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
-                    c_depth++;
                     fs_free_inode(ptr2);
                 }
             }
@@ -169,14 +158,11 @@ int get_inode_by_path(const char* path, inode_t** inode){
             ptr2 = ptr;
             ret = ptr->inode_ops.i_lookup(ptr, slash);
             if(ret < 0){
-                *inode = ptr;
-                if(r_depth - c_depth > 1)
-                    return -2;
-                else
-                    return -1;
+                *inode = NULL;
+                fs_free_inode(ptr);
+                return -1;
             }
             ptr = fs_get_inode(ptr->device, ret);
-            c_depth++;
             fs_free_inode(ptr2);
         }
     }
