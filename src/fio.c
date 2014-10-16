@@ -90,10 +90,13 @@ int fio_open(const char * path, int flags, int mode) {
 
         if(target_node){
             if(p_inode->inode_ops.i_create){
+                xSemaphoreTake(p_inode->lock, portMAX_DELAY);
                 if(p_inode->inode_ops.i_create(p_inode, fn_buf)){
+                    xSemaphoreGive(p_inode->lock);
                     fs_free_inode(p_inode);
                     return -3;       
                 }else{
+                    xSemaphoreGive(p_inode->lock);
                     target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
                 }
             }else{
@@ -146,20 +149,21 @@ int fio_mkdir(const char * path) {
             return -1;
         }else{
             if(p_inode->inode_ops.i_mkdir){
+                xSemaphoreTake(p_inode->lock, portMAX_DELAY);
                 if(p_inode->inode_ops.i_mkdir(p_inode, fn_buf)){
+                    xSemaphoreGive(p_inode->lock);
                     fs_free_inode(p_inode);
                     return -3;       
                 }else{
-                    target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+                    xSemaphoreGive(p_inode->lock);
+                    fs_free_inode(p_inode);
+                    return 0;       
                 }
             }else{
                 fs_free_inode(p_inode);
                 return -2;
             }
         }
-
-        fs_free_inode(p_inode);
-        return 0;
     }else{
         return -1;
     }
