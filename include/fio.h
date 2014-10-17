@@ -17,7 +17,7 @@ enum open_types_t {
 #define MAX_FDS 32
 #define MAX_DDS 4
 
-typedef struct dir_entity_t {
+typedef struct dir_entity {
     uint8_t d_attr;
     char d_name[256];    
 }dir_entity_t;
@@ -44,8 +44,8 @@ int fio_dir_is_open(int dd);
 int fio_opendir(const char* path);
 void fio_set_dir_opaque(int dd, void * opaque);
 int fio_closedir(int dd);
-off_t fio_seekdir(int fd, off_t offset, int whence);
-ssize_t fio_readdir(int dd, struct dir_entity_t* ent);
+off_t fio_seekdir(int fd, off_t offset);
+ssize_t fio_readdir(int dd, struct dir_entity* ent);
 
 int fio_is_open(int fd);
 int fio_open(const char * path, int flags, int mode);

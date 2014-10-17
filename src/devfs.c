@@ -36,6 +36,7 @@ inode_t devfs_stdin_node = {
     .file_ops = {
         NULL,
         stdin_read,
+        NULL,
         NULL
     },
     NULL
@@ -49,14 +50,15 @@ inode_t devfs_stdout_node = {
     .inode_ops = {
         NULL,
         NULL,
-        NULL
+        NULL,
     },
     0,
     NULL,
     .file_ops = {
         NULL,
         NULL,
-        stdout_write
+        stdout_write,
+        NULL
     },
     NULL
 };
@@ -76,7 +78,8 @@ inode_t devfs_stderr_node = {
     .file_ops = {
         NULL,
         NULL,
-        stdout_write
+        stdout_write,
+        NULL
     },
     NULL
 };
@@ -94,6 +97,7 @@ inode_t devfs_root_node = {
     0,
     NULL,
     .file_ops = {
+        NULL,
         NULL,
         NULL,
         NULL

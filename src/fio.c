@@ -242,13 +242,13 @@ ssize_t fio_read(int fd, void * buf, size_t count) {
     return r;
 }
 
-/*
-ssize_t fio_readdir(int dd, struct dir_entity_t* ent) {
+
+ssize_t fio_readdir(int dd, struct dir_entity* ent) {
     ssize_t r = 0;
 //    DBGOUT("fio_read(%i, %p, %i)\r\n", fd, buf, count);
     if (fio_is_dir_open_int(dd)) {
-        if (fio_dds[dd].ddread) {
-            r = fio_dds[dd].ddread(fio_dds[dd].opaque, ent);
+        if (fio_dds[dd].inode->file_ops.readdir) {
+            r = fio_dds[dd].inode->file_ops.readdir(fio_dds[dd].inode, ent, fio_dds[dd].cursor++);
         } else {
             r = -3;
         }
@@ -257,7 +257,7 @@ ssize_t fio_readdir(int dd, struct dir_entity_t* ent) {
     }
     return r;
 }
-*/
+
 
 ssize_t fio_write(int fd, const void * buf, size_t count) {
     ssize_t r = 0;
@@ -314,22 +314,25 @@ off_t fio_seek(int fd, off_t offset, int whence) {
     return -3;
 }
 
-/*
+
 off_t fio_seekdir(int dd, off_t offset) {
-    off_t r = 0;
-//    DBGOUT("fio_seek(%i, %i, %i)\r\n", dd, offset, whence);
-    if (fio_is_open_int(dd)) {
-        if (fio_dds[dd].ddseek) {
-            r = fio_dds[dd].ddseek(fio_dds[dd].opaque, offset);
-        } else {
-            r = -3;
-        }
+    if (fio_is_dir_open_int(dd)) {
+        if(!fio_dds[dd].inode->file_ops.lseek)
+            return -1;
+
+        offset = fio_dds[dd].inode->file_ops.lseek(fio_dds[dd].inode, offset);
+
+        xSemaphoreTake(fio_sem, portMAX_DELAY);
+        fio_dds[dd].cursor = offset;
+        xSemaphoreGive(fio_sem);
+
+        return 0;
     } else {
-        r = -2;
+        return -2;
     }
-    return r;
+    return -3;
 }
-*/
+
 
 int fio_close(int fd) {
     int r = 0;

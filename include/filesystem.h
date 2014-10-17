@@ -9,6 +9,8 @@
 #define MAX_FS 16
 #define OPENFAIL (-1)
 
+struct dir_entity;
+
 typedef struct inode_t{
     uint32_t device;
     uint32_t number;
@@ -25,6 +27,7 @@ typedef struct inode_t{
         off_t (*lseek)(struct inode_t* node, off_t offset);
         ssize_t (*read)(struct inode_t* node, void* buf, size_t count, off_t offset);
         ssize_t (*write)(struct inode_t* node, const void* buf, size_t count, off_t offset);
+        ssize_t (*readdir)(struct inode_t* node, struct dir_entity* filldir, off_t offset);
     }file_ops;
     void* opaque;
 }inode_t;
