@@ -107,6 +107,8 @@ inode_t* fs_get_inode(uint32_t device, uint32_t number){
                     inode_pool[j].device = device;
                     inode_pool[j].number = number;
                     if(fss[i].sb.superblock_ops.s_read_inode(&inode_pool[j])){
+                        inode_pool[j].device = 0;
+                        inode_pool[j].number = 0;
                         return NULL;
                     }
                     inode_pool[j].count++;

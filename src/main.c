@@ -13,6 +13,7 @@
 #include "fio.h"
 //#include "romfs.h"
 #include "ramfs.h"
+#include "devfs.h"
 
 #include "clib.h"
 #include "shell.h"

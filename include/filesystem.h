@@ -14,7 +14,6 @@ typedef struct inode_t{
     uint32_t number;
     uint32_t mode;
     uint32_t block_size;
-    uint32_t size;
     struct inode_operations{
         int (*i_create)(struct inode_t* node, const char* path);
         int (*i_lookup)(struct inode_t* node, const char* path);
@@ -23,6 +22,7 @@ typedef struct inode_t{
     uint32_t count;
     xSemaphoreHandle lock;
     struct file_operations{
+        off_t (*lseek)(struct inode_t* node, off_t offset);
         ssize_t (*read)(struct inode_t* node, void* buf, size_t count, off_t offset);
         ssize_t (*write)(struct inode_t* node, const void* buf, size_t count, off_t offset);
     }file_ops;

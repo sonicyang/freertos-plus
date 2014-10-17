@@ -29,9 +29,7 @@ static int fio_is_open_int(int fd) {
 static int fio_is_dir_open_int(int dd) {
     if ((dd < 0) || (dd >= MAX_DDS))
         return 0;
-    int r = !((fio_dds[dd].ddread == NULL) &&
-              (fio_dds[dd].ddclose == NULL) &&
-              (fio_dds[dd].opaque == NULL));
+    int r = !((fio_dds[dd].inode == NULL));
     return r;
 }
 
@@ -46,7 +44,6 @@ static int fio_findfd() {
     return -1;
 }
 
-/*
 static int fio_finddd() {
     int i;
     
@@ -57,7 +54,6 @@ static int fio_finddd() {
     
     return -1;
 }
-*/
 
 int fio_is_open(int fd) {
     int r = 0;
@@ -69,7 +65,7 @@ int fio_is_open(int fd) {
 
 int fio_open(const char * path, int flags, int mode) {
     int fd, ret, target_node;
-    inode_t* p_inode;
+    inode_t* p_inode,* f_inode;
     const char* fn = path + strlen(path) - 1;
     char buf[64], fn_buf[128];
 
@@ -104,14 +100,23 @@ int fio_open(const char * path, int flags, int mode) {
                 return -2;
             }
         }
+
+        f_inode = fs_get_inode(p_inode->device, target_node);
         
+        if(f_inode->mode && 1){
+            fs_free_inode(f_inode);
+            fs_free_inode(p_inode);
+            return -4;
+        }
+
         xSemaphoreTake(fio_sem, portMAX_DELAY);
         fd = fio_findfd();
             
         if (fd >= 0) {
-            fio_fds[fd].inode = fs_get_inode(p_inode->device, target_node);
+            fio_fds[fd].inode = f_inode;
             fio_fds[fd].flags = flags;
             fio_fds[fd].mode = mode;
+            fio_fds[fd].cursor = 0;
             fio_fds[fd].opaque = NULL;
         }
         xSemaphoreGive(fio_sem);
@@ -170,20 +175,54 @@ int fio_mkdir(const char * path) {
 }
 
 int fio_opendir(const char* path) {
-    int dd;
+    int dd, ret, target_node;
+    inode_t* p_inode,* f_inode;
+    const char* fn = path + strlen(path) - 1;
+    char buf[64], fn_buf[128];
+
+    ret = 0;
+    while(*fn == '/')fn--, ret++;
+    while(*fn != '/')fn--;
+    fn++;
+    strncpy(fn_buf, fn, strlen(fn) - ret);
+    fn_buf[strlen(fn) - ret] = '\0';
+
+    strncpy(buf, path, fn - path);
+    buf[fn - path] = '\0';
+
 //    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
-    xSemaphoreTake(fio_sem, portMAX_DELAY);
-    dd = fio_finddd();
-    
-    if (dd >= 0) {
-        fio_dds[dd].ddread = ddread;
-        fio_dds[dd].ddseek = ddseek;
-        fio_dds[dd].ddclose = ddclose;
-        fio_dds[dd].opaque = opaque;
+    ret = get_inode_by_path(buf, &p_inode);
+    if(!ret){
+        target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+
+        if(target_node){
+            return -1;
+        }
+
+        f_inode = fs_get_inode(p_inode->device, target_node);
+        
+        if(!(f_inode->mode && 1)){
+            fs_free_inode(f_inode);
+            fs_free_inode(p_inode);
+            return -4;
+        }
+
+        xSemaphoreTake(fio_sem, portMAX_DELAY);
+        dd = fio_finddd();
+            
+        if (dd >= 0) {
+            fio_dds[dd].inode = f_inode;
+            fio_dds[dd].cursor = 0;
+            fio_dds[dd].opaque = NULL;
+        }
+        xSemaphoreGive(fio_sem);
+
+        fs_free_inode(p_inode);
+
+        return dd;
+    }else{
+        return -1;
     }
-    xSemaphoreGive(fio_sem);
-    
-    return dd;
 }
 
 
@@ -242,7 +281,6 @@ off_t fio_seek(int fd, off_t offset, int whence) {
 //    DBGOUT("fio_seek(%i, %i, %i)\r\n", fd, offset, whence);
     if (fio_is_open_int(fd)) {
         
-        uint32_t size = fio_fds[fd].inode->size;
         uint32_t origin;
         
         switch (whence) {
@@ -253,18 +291,18 @@ off_t fio_seek(int fd, off_t offset, int whence) {
             origin = fio_fds[fd].cursor;
             break;
         case SEEK_END:
-            origin = size;
+            origin = 0xFFFFFFFF;
             break;
         default:
             return -1;
         }
 
         offset = origin + offset;
-
-        if (offset < 0)
+        
+        if(!fio_fds[fd].inode->file_ops.lseek)
             return -1;
-        if (offset > size)
-            offset = size;
+
+        offset = fio_fds[fd].inode->file_ops.lseek(fio_fds[fd].inode, offset);
 
         xSemaphoreTake(fio_sem, portMAX_DELAY);
         fio_fds[fd].cursor = offset;

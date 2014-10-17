@@ -93,11 +93,13 @@ static ssize_t ramfs_write(struct inode_t* inode, const void* buf, size_t count,
 
     if(!ramfs_node)
         return -1;
+    if(ramfs_node->attribute && 1)
+        return -2;
 
     uint8_t* src = (uint8_t*)buf;
     uint32_t start_block_number;
-    uint32_t pCount = count;
-    
+    uint32_t pCount = count;     
+
     if(!count)
         return 0;
 
@@ -146,6 +148,8 @@ static ssize_t ramfs_read(struct inode_t* inode, void* buf, size_t count, off_t 
 
     if(!ramfs_node)
         return -1;
+    if(ramfs_node->attribute && 1)
+        return -2;
 
     uint8_t* des = (uint8_t*)buf;
     uint32_t size = ramfs_node->data_length;
@@ -193,37 +197,41 @@ static ssize_t ramfs_readdir(void * opaque, dir_entity_t* ent) {
     dir->cursor++;
     return 0;
 }
+*/
 
-static off_t ramfs_seek(void * opaque, off_t offset, int whence) {
-    struct ramfs_fds_t * f = (struct ramfs_fds_t *) opaque;
-    uint32_t size = f->file_des->data_length;
-    uint32_t origin;
-    
-    switch (whence) {
-    case SEEK_SET:
-        origin = 0;
-        break;
-    case SEEK_CUR:
-        origin = f->cursor;
-        break;
-    case SEEK_END:
-        origin = size;
-        break;
-    default:
-        return -1;
+off_t ramfs_seek(struct inode_t* node, off_t offset) {
+    ramfs_superblock_t* ptr = ramfs_sb_list; 
+    ramfs_inode_t * ramfs_node = NULL;
+
+    while(ptr){
+        if(ptr->device == node->device){
+            if(node->number >= ptr->inode_count)
+               return -1;
+
+            ramfs_node = ptr->inode_list[node->number];
+            break;
+        }
+        ptr = ptr->next;
     }
 
-    offset = origin + offset;
-
-    if (offset < 0)
+    if(!ramfs_node)
         return -1;
-    if (offset > size)
-        offset = size;
 
-    f->cursor = offset;
+    uint32_t size;
+    if(ramfs_node->attribute && 1)
+        size = ramfs_node->block_count;
+    else
+        size = ramfs_node->data_length;
+    
+    if(offset > size)
+        offset = size;
+    if(offset < 0)
+        offset = 0;
 
     return offset;
 }
+
+/*
 
 static off_t ramfs_seekdir(void * opaque, off_t offset) {
     struct ramfs_fds_t * dir = (struct ramfs_fds_t *) opaque;
@@ -307,6 +315,7 @@ int ramfs_i_create(struct inode_t* inode, const char* fn){
 
             c_inode = add_inode(fn, ptr);
             p_inode->blocks[p_inode->block_count++] = c_inode->hash;
+            p_inode->block_count++;
             return 0;
         }
         ptr = ptr->next;
@@ -329,6 +338,7 @@ int ramfs_i_mkdir(struct inode_t* inode, const char* fn){
             c_inode = add_inode(fn, ptr);
             c_inode->attribute |= 1; //Set as Floder
             p_inode->blocks[p_inode->block_count++] = c_inode->hash;
+            p_inode->block_count++;
             return 0;
         }
         ptr = ptr->next;
@@ -373,11 +383,13 @@ int ramfs_read_inode(inode_t* inode){
         if(ptr->device == inode->device){
             if(inode->number >= ptr->inode_count)
                return -1;
-            inode->size = ptr->inode_list[inode->number]->data_length;
+            //inode->size = ptr->inode_list[inode->number]->data_length;
+            inode->mode = ptr->inode_list[inode->number]->attribute;
             inode->block_size = BLOCK_SIZE;
             inode->inode_ops.i_lookup = ramfs_i_lookup;
             inode->inode_ops.i_create = ramfs_i_create;
             inode->inode_ops.i_mkdir = ramfs_i_mkdir;
+            inode->file_ops.lseek = ramfs_seek;
             inode->file_ops.read = ramfs_read;
             inode->file_ops.write = ramfs_write;
 

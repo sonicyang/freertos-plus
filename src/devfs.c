@@ -26,7 +26,6 @@ inode_t devfs_stdin_node = {
     .number = 1,
     .mode = 0,
     .block_size = 0,
-    .size = 0,
     .inode_ops = {
         NULL,
         NULL,
@@ -35,6 +34,7 @@ inode_t devfs_stdin_node = {
     0,
     NULL,
     .file_ops = {
+        NULL,
         stdin_read,
         NULL
     },
@@ -46,7 +46,6 @@ inode_t devfs_stdout_node = {
     .number = 2,
     .mode = 0,
     .block_size = 0,
-    .size = 0,
     .inode_ops = {
         NULL,
         NULL,
@@ -55,6 +54,7 @@ inode_t devfs_stdout_node = {
     0,
     NULL,
     .file_ops = {
+        NULL,
         NULL,
         stdout_write
     },
@@ -66,7 +66,6 @@ inode_t devfs_stderr_node = {
     .number = 3,
     .mode = 0,
     .block_size = 0,
-    .size = 0,
     .inode_ops = {
         NULL,
         NULL,
@@ -75,6 +74,7 @@ inode_t devfs_stderr_node = {
     0,
     NULL,
     .file_ops = {
+        NULL,
         NULL,
         stdout_write
     },
@@ -86,7 +86,6 @@ inode_t devfs_root_node = {
     .number = 0,
     .mode = 1,
     .block_size = 0,
-    .size = 3,
     .inode_ops = {
         NULL,
         devfs_root_lookup,
@@ -95,6 +94,7 @@ inode_t devfs_root_node = {
     0,
     NULL,
     .file_ops = {
+        NULL,
         NULL,
         NULL
     },
