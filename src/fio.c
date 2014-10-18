@@ -195,7 +195,7 @@ int fio_opendir(const char* path) {
     if(!ret){
         target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
 
-        if(target_node){
+        if(!target_node){
             return -1;
         }
 

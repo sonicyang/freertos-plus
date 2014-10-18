@@ -3,5 +3,7 @@ target remote :3333
 
 b main
 b ls_command
+b ramfs_readdir
+b ramfs_i_mkdir
 c
 c

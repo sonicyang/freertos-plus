@@ -148,7 +148,7 @@ int get_inode_by_path(const char* path, inode_t** inode){
             break;
         slash++;
         
-        if(ptr->mode && 0x0002){
+        if(ptr->mode & 0x0002){
             for(uint32_t i = 0; i < MAX_FS; i++){
                 if((fss[i].used) && (fss[i].sb.covered == ptr)){
                     ptr2 = ptr;

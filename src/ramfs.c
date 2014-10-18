@@ -331,7 +331,6 @@ int ramfs_i_create(struct inode_t* inode, const char* fn){
 
             c_inode = add_inode(fn, ptr);
             p_inode->blocks[p_inode->block_count++] = c_inode->hash;
-            p_inode->block_count++;
             return 0;
         }
         ptr = ptr->next;
@@ -354,7 +353,6 @@ int ramfs_i_mkdir(struct inode_t* inode, const char* fn){
             c_inode = add_inode(fn, ptr);
             c_inode->attribute |= 1; //Set as Floder
             p_inode->blocks[p_inode->block_count++] = c_inode->hash;
-            p_inode->block_count++;
             return 0;
         }
         ptr = ptr->next;
