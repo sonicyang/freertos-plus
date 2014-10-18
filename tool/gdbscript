@@ -2,5 +2,6 @@ file build/main.elf
 target remote :3333
 
 b main
-b test_ramfs_command
+b ls_command
+c
 c

@@ -350,22 +350,18 @@ int fio_close(int fd) {
     return r;
 }
 
-/*
 int fio_closedir(int dd) {
-    int r = 0;
 //    DBGOUT("fio_close(%i)\r\n", fd);
     if (fio_is_dir_open_int(dd)) {
-        if (fio_dds[dd].ddclose)
-            r = fio_dds[dd].ddclose(fio_dds[dd].opaque);
+        fs_free_inode(fio_dds[dd].inode);
         xSemaphoreTake(fio_sem, portMAX_DELAY);
         memset(fio_dds + dd, 0, sizeof(struct dddef_t));
         xSemaphoreGive(fio_sem);
+        return 0;
     } else {
-        r = -2;
+        return -1;
     }
-    return r;
 }
-*/
 
 void fio_set_opaque(int fd, void * opaque) {
     if (fio_is_open_int(fd))

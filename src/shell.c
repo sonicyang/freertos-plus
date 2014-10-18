@@ -62,8 +62,8 @@ int parse_command(char *str, char *argv[]){
 }
 
 void ls_command(int n, char *argv[]){
-/*    uint8_t listFlag = 0;
-    struct dir_entity_t ent;
+    uint8_t listFlag = 0;
+    struct dir_entity ent;
     int dir, c;
 
     if(n == 1){
@@ -85,7 +85,7 @@ void ls_command(int n, char *argv[]){
     for(int i = 1; i < n; i++){
         if(argv[i][0] != '-'){
             fio_printf(1, "\r\n");
-            dir = fs_opendir(argv[i]); //Treat last argv as path
+            dir = fio_opendir(argv[i]); //Treat last argv as path
                         
             for(c = 0; fio_readdir(dir, &ent) >= 0; c++);
             fio_seekdir(dir, 0);
@@ -118,7 +118,7 @@ void ls_command(int n, char *argv[]){
             fio_closedir(dir);
         }
     }
-    return;*/
+    return;
 }
 
 int filedump(const char* filename){
