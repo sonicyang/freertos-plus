@@ -108,7 +108,6 @@ static ssize_t ramfs_write(struct inode_t* inode, const void* buf, size_t count,
     if(start_block_number >= ramfs_node->block_count){
         ramfs_node->blocks[ramfs_node->block_count] = add_block(ptr);
         ramfs_node->block_count++;
-        ramfs_node->data_length += BLOCK_SIZE;
     }
     memcpy(ptr->block_pool[ramfs_node->blocks[start_block_number++]]->data + (offset & (0x3F)), src, \
             count < (BLOCK_SIZE - (offset & (0x3F))) ? count : BLOCK_SIZE - (offset & (0x3F)));
@@ -119,7 +118,6 @@ static ssize_t ramfs_write(struct inode_t* inode, const void* buf, size_t count,
         if(start_block_number >= ramfs_node->block_count){
             ramfs_node->blocks[ramfs_node->block_count] = add_block(ptr);
             ramfs_node->block_count++;
-            ramfs_node->data_length += BLOCK_SIZE;
         }
         memcpy(ptr->block_pool[ramfs_node->blocks[start_block_number++]]->data, src, (count > BLOCK_SIZE ? BLOCK_SIZE: count));
         src += (count > BLOCK_SIZE ? BLOCK_SIZE: count);
@@ -127,6 +125,8 @@ static ssize_t ramfs_write(struct inode_t* inode, const void* buf, size_t count,
     }
 
     offset += pCount;
+    if(offset > ramfs_node->data_length)
+        ramfs_node->data_length += offset - ramfs_node->data_length;
 
     return pCount;
 }
@@ -154,13 +154,14 @@ static ssize_t ramfs_read(struct inode_t* inode, void* buf, size_t count, off_t 
     uint8_t* des = (uint8_t*)buf;
     uint32_t size = ramfs_node->data_length;
     uint32_t start_block_number;
-    uint32_t pCount = count;
     
     if(!count)
         return 0;
 
     if ((offset + count) > size)
         count = size - offset;
+
+    uint32_t pCount = count;
 
     start_block_number = offset >> 6;   //Every Block is 4096 Bytes
     
