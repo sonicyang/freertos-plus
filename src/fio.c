@@ -68,6 +68,9 @@ int fio_open(const char * path, int flags, int mode) {
     inode_t* p_inode,* f_inode;
     const char* fn = path + strlen(path) - 1;
     char buf[64], fn_buf[128];
+    
+    if(strcmp(path, "/") == 0)
+        return -1;
 
     ret = 0;
     while(*fn == '/')fn--, ret++;
@@ -135,6 +138,9 @@ int fio_mkdir(const char * path) {
     const char* fn = path + strlen(path) - 1;
     char buf[64], fn_buf[128];
 
+    if(strcmp(path, "/") == 0)
+        return -1;
+
     ret = 0;
     while(*fn == '/')fn--, ret++;
     while(*fn != '/')fn--;
@@ -180,48 +186,61 @@ int fio_opendir(const char* path) {
     const char* fn = path + strlen(path) - 1;
     char buf[64], fn_buf[128];
 
-    ret = 0;
-    while(*fn == '/')fn--, ret++;
-    while(*fn != '/')fn--;
-    fn++;
-    strncpy(fn_buf, fn, strlen(fn) - ret);
-    fn_buf[strlen(fn) - ret] = '\0';
-
-    strncpy(buf, path, fn - path);
-    buf[fn - path] = '\0';
-
-//    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
-    ret = get_inode_by_path(buf, &p_inode);
-    if(!ret){
-        target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
-
-        if(!target_node){
-            return -1;
-        }
-
-        f_inode = fs_get_inode(p_inode->device, target_node);
-        
-        if(!(f_inode->mode && 1)){
-            fs_free_inode(f_inode);
-            fs_free_inode(p_inode);
-            return -4;
-        }
-
+    if(strcmp(path, "/") == 0){
+        ret = get_inode_by_path(path, &p_inode);
         xSemaphoreTake(fio_sem, portMAX_DELAY);
         dd = fio_finddd();
             
         if (dd >= 0) {
-            fio_dds[dd].inode = f_inode;
+            fio_dds[dd].inode = p_inode;
             fio_dds[dd].cursor = 0;
             fio_dds[dd].opaque = NULL;
         }
         xSemaphoreGive(fio_sem);
-
-        fs_free_inode(p_inode);
-
         return dd;
     }else{
-        return -1;
+        ret = 0;
+        while(*fn == '/')fn--, ret++;
+        while(*fn != '/')fn--;
+        fn++;
+        strncpy(fn_buf, fn, strlen(fn) - ret);
+        fn_buf[strlen(fn) - ret] = '\0';
+
+        strncpy(buf, path, fn - path);
+        buf[fn - path] = '\0';
+        
+        ret = get_inode_by_path(buf, &p_inode);
+        if(!ret){
+            target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
+
+            if(!target_node){
+                return -1;
+            }
+
+            f_inode = fs_get_inode(p_inode->device, target_node);
+            
+            if(!(f_inode->mode && 1)){
+                fs_free_inode(f_inode);
+                fs_free_inode(p_inode);
+                return -4;
+            }
+
+            xSemaphoreTake(fio_sem, portMAX_DELAY);
+            dd = fio_finddd();
+                
+            if (dd >= 0) {
+                fio_dds[dd].inode = f_inode;
+                fio_dds[dd].cursor = 0;
+                fio_dds[dd].opaque = NULL;
+            }
+            xSemaphoreGive(fio_sem);
+
+            fs_free_inode(p_inode);
+
+            return dd;
+        }else{
+            return -1;
+        }
     }
 }
 
