@@ -8,6 +8,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "host.h"
+#include "devfs.h"
 
 typedef struct {
 	const char *name;
@@ -253,6 +254,12 @@ void test_ramfs_command(int n, char *argv[]) {
     fio_printf(1, "%s\r\n", buf);
 
     fio_close(file);
+
+    fs_mkdir("/dev/");
+    inode_t* ptr;
+    fs_open("/dev/", &ptr);
+    fs_mount(ptr, DEVFS_TYPE, NULL);
+    fs_close_inode(ptr);
 
     return;
 }

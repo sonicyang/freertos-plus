@@ -2,9 +2,6 @@ file build/main.elf
 target remote :3333
 
 b main
-b ls_command
-b ramfs_readdir
-b ramfs_i_mkdir
-b filedump
+b shell.c:259
 c
 c
