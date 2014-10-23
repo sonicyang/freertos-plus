@@ -23,6 +23,7 @@ void host_command(int, char **);
 void help_command(int, char **);
 void host_command(int, char **);
 void mmtest_command(int, char **);
+void mkdir_command(int, char **);
 void test_command(int, char **);
 void test_ramfs_command(int, char **);
 
@@ -34,6 +35,7 @@ cmdlist cl[]={
 	MKCL(cat, "Concatenate files and print on the stdout"),
 	MKCL(ps, "Report a snapshot of the current processes"),
 	MKCL(host, "Run command on host"),
+	MKCL(mkdir, "Make Directory"),
 	MKCL(mmtest, "heap memory allocation test"),
 	MKCL(help, "help"),
 	MKCL(test, "test new function"),
@@ -198,6 +200,14 @@ void help_command(int n,char *argv[]){
 	for(i=0;i<sizeof(cl)/sizeof(cl[0]); ++i){
 		fio_printf(1, "%s - %s\r\n", cl[i].name, cl[i].desc);
 	}
+}
+
+void mkdir_command(int n,char *argv[]){
+	fio_printf(1, "\r\n");
+    if(n < 2)
+        return;
+    fs_mkdir(argv[1]);
+    return;
 }
 
 void test_command(int n, char *argv[]) {
