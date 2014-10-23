@@ -128,7 +128,7 @@ void fs_free_inode(inode_t* inode){
     return;
 }
 
-int get_inode_by_path(const char* path, inode_t** inode){
+int fs_open(const char* path, inode_t** inode){
     inode_t *ptr, *ptr2;
     int32_t ret;
 
@@ -172,37 +172,7 @@ int get_inode_by_path(const char* path, inode_t** inode){
     *inode = ptr;
     return 0; 
 }
-
 /*
-
-int fs_open(const char * path, int flags, int mode) {
-    const char * slash;
-    uint32_t hash;
-    int i;
-//    DBGOUT("fs_open(\"%s\", %i, %i)\r\n", path, flags, mode);
-    
-
-
-
-    while (path[0] == '/')
-        path++;
-    
-    slash = strchr(path, '/');
-    
-    if (!slash)
-        return -2;
-
-    hash = hash_djb2((const uint8_t *) path, slash - path);
-    path = slash + 1;
-
-    for (i = 0; i < MAX_FS; i++) {
-        if (fss[i].hash == hash)
-            return fss[i].cb(fss[i].opaque, path, flags, mode);
-    }
-    
-    return -2;
-}
-
 int fs_opendir(char* path) {
     char * slash;
     uint32_t hash;

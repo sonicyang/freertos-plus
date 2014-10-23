@@ -62,12 +62,11 @@ __attribute__((constructor)) void fs_init();
 
 int register_fs(fs_type_t* type);
 int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque);
-int get_inode_by_path(const char* path, inode_t** inode);
+int fs_open(const char* path, inode_t** inode);
 inode_t* fs_get_inode(uint32_t device, uint32_t number);
 void fs_free_inode(inode_t* inode);
 
 /*
-int fs_open(const char * path, int flags, int mode);
 int fs_opendir(char * path);
 int fs_list(const char * path, char*** ret_path);
 */
