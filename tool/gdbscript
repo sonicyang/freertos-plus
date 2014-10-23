@@ -2,6 +2,7 @@ file build/main.elf
 target remote :3333
 
 b main
-b shell.c:259
+b ls_command
+b fio.c:177
 c
 c

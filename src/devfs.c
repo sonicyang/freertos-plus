@@ -97,10 +97,10 @@ inode_t devfs_root_node = {
     0,
     NULL,
     .file_ops = {
+        devfs_seek,
         NULL,
         NULL,
-        NULL,
-        NULL
+        devfs_readdir
     },
     NULL
 };
@@ -206,6 +206,43 @@ int devfs_read_inode(inode_t* inode){
     return 0;
 }
 
+ssize_t devfs_readdir(struct inode_t* inode, dir_entity_t* ent, off_t offset) {
+    if((inode->device != devfs_root_node.device) || (inode->number != devfs_root_node.number))
+        return -1;
+
+    if((offset >= 3) || (offset < 0)) //stdin stdout stderr
+        return -2;
+
+    switch(offset){
+        case 0:
+            strcpy(ent->d_name, "stdin");
+            ent->d_attr = 0;
+            break;
+        case 1:
+            strcpy(ent->d_name, "stdout");
+            ent->d_attr = 0;
+            break;
+        case 2:
+            strcpy(ent->d_name, "stderr");
+            ent->d_attr = 0;
+            break;
+    }
+
+    return 0;
+}
+
+
+off_t devfs_seek(struct inode_t* inode, off_t offset) {
+    if((inode->device != devfs_root_node.device) || (inode->number != devfs_root_node.number))
+        return -1;
+    
+    if(offset > 2)
+        offset = 2;
+    if(offset < 0)
+        offset = 0;
+
+    return offset;
+}
 int devfs_read_superblock(void* opaque, struct superblock_t* sb){
     sb = &dev_superblock;
     return 0;

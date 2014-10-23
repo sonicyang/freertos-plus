@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <filesystem.h>
+#include "fio.h"
 
 #define STDIN_HASH 195036193
 #define STDOUT_HASH 2141225736
@@ -22,6 +23,8 @@ int devfs_read_inode(inode_t* inode);
 
 int devfs_read_superblock(void* opaque, struct superblock_t* sb);
 
+ssize_t devfs_readdir(struct inode_t* inode, dir_entity_t* ent, off_t offset);
+off_t devfs_seek(struct inode_t* node, off_t offset);
 
 //remove those after mounting is working
 inode_t* get_stdin_node();

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "devfs.h"
 #include "fio.h"
+#include "clib.h"
 #include "filesystem.h"
 #include "osdebug.h"
 #include "hash-djb2.h"
@@ -137,7 +138,7 @@ int fio_opendir(const char* path) {
     int dd, ret, target_node;
     inode_t* p_inode,* f_inode;
     const char* fn = path + strlen(path) - 1;
-    char buf[64], fn_buf[128];
+    char buf[64], fn_buf[128], path_striped[256];
 
     if(strcmp(path, "/") == 0){
         ret = fs_open(path, &p_inode);
@@ -161,6 +162,9 @@ int fio_opendir(const char* path) {
 
         strncpy(buf, path, fn - path);
         buf[fn - path] = '\0';
+
+        strcpy(path_striped, buf);
+        strcat(path_striped, fn_buf);
         
         ret = fs_open(buf, &p_inode);
         if(!ret){
@@ -169,8 +173,11 @@ int fio_opendir(const char* path) {
             if(!target_node){
                 return -1;
             }
+            
+            fio_printf(1, "%s\r\n", path_striped);
 
-            f_inode = fs_open_inode(p_inode->device, target_node);
+            if(fs_open(path_striped, &f_inode))
+                return -4;
             
             if(!(f_inode->mode && 1)){
                 fs_close_inode(f_inode);

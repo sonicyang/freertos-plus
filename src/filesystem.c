@@ -145,10 +145,6 @@ int fs_open(const char* path, inode_t** inode){
     
     slash = path;
     while(1){
-        slash = strchr(slash, '/');
-        if(!slash || slash[1] == '\0')
-            break;
-        slash++;
         
         if(ptr->mode & 0x0002){
             for(uint32_t i = 0; i < MAX_FS; i++){
@@ -158,17 +154,22 @@ int fs_open(const char* path, inode_t** inode){
                     fs_close_inode(ptr2);
                 }
             }
-        }else{
-            ptr2 = ptr;
-            ret = ptr->inode_ops.i_lookup(ptr, slash);
-            if(ret < 0){
-                *inode = NULL;
-                fs_close_inode(ptr);
-                return -1;
-            }
-            ptr = fs_open_inode(ptr->device, ret);
-            fs_close_inode(ptr2);
         }
+
+        slash = strchr(slash, '/');
+        if(!slash || slash[1] == '\0')
+            break;
+        slash++;
+
+        ptr2 = ptr;
+        ret = ptr->inode_ops.i_lookup(ptr, slash);
+        if(ret < 0){
+            *inode = NULL;
+            fs_close_inode(ptr);
+            return -1;
+        }
+        ptr = fs_open_inode(ptr->device, ret);
+        fs_close_inode(ptr2);
     }
     
     *inode = ptr;
