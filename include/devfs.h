@@ -9,6 +9,8 @@
 #define STDOUT_HASH 2141225736
 #define STDERR_HASH 2141214883
 
+#define DEVFS_TYPE 164136743
+
 ssize_t stdin_read(struct inode_t* node, void* buf, size_t count, off_t offset);
 ssize_t stdout_write(struct inode_t* node, const void* buf, size_t count, off_t offset);
 

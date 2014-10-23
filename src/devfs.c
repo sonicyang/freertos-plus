@@ -106,7 +106,7 @@ inode_t devfs_root_node = {
 };
 
 fs_type_t devfs_r = {
-    .type_name_hash = 164136743,
+    .type_name_hash = DEVFS_TYPE,
     .rsbcb = devfs_read_superblock,
     .require_dev = 0,
     .next = NULL,
