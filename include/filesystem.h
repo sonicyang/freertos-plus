@@ -64,7 +64,7 @@ int register_fs(fs_type_t* type);
 int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque);
 int fs_open(const char* path, inode_t** inode);
 inode_t* fs_open_inode(uint32_t device, uint32_t number);
-void fs_free_inode(inode_t* inode);
+void fs_close_inode(inode_t* inode);
 
 /*
 int fs_opendir(char * path);

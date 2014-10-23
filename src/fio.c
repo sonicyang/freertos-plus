@@ -92,14 +92,14 @@ int fio_open(const char * path, int flags, int mode) {
                 xSemaphoreTake(p_inode->lock, portMAX_DELAY);
                 if(p_inode->inode_ops.i_create(p_inode, fn_buf)){
                     xSemaphoreGive(p_inode->lock);
-                    fs_free_inode(p_inode);
+                    fs_close_inode(p_inode);
                     return -3;       
                 }else{
                     xSemaphoreGive(p_inode->lock);
                     target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
                 }
             }else{
-                fs_free_inode(p_inode);
+                fs_close_inode(p_inode);
                 return -2;
             }
         }
@@ -107,8 +107,8 @@ int fio_open(const char * path, int flags, int mode) {
         f_inode = fs_open_inode(p_inode->device, target_node);
         
         if(f_inode->mode && 1){
-            fs_free_inode(f_inode);
-            fs_free_inode(p_inode);
+            fs_close_inode(f_inode);
+            fs_close_inode(p_inode);
             return -4;
         }
 
@@ -124,7 +124,7 @@ int fio_open(const char * path, int flags, int mode) {
         }
         xSemaphoreGive(fio_sem);
 
-        fs_free_inode(p_inode);
+        fs_close_inode(p_inode);
 
         return fd;
     }else{
@@ -163,15 +163,15 @@ int fio_mkdir(const char * path) {
                 xSemaphoreTake(p_inode->lock, portMAX_DELAY);
                 if(p_inode->inode_ops.i_mkdir(p_inode, fn_buf)){
                     xSemaphoreGive(p_inode->lock);
-                    fs_free_inode(p_inode);
+                    fs_close_inode(p_inode);
                     return -3;       
                 }else{
                     xSemaphoreGive(p_inode->lock);
-                    fs_free_inode(p_inode);
+                    fs_close_inode(p_inode);
                     return 0;       
                 }
             }else{
-                fs_free_inode(p_inode);
+                fs_close_inode(p_inode);
                 return -2;
             }
         }
@@ -220,8 +220,8 @@ int fio_opendir(const char* path) {
             f_inode = fs_open_inode(p_inode->device, target_node);
             
             if(!(f_inode->mode && 1)){
-                fs_free_inode(f_inode);
-                fs_free_inode(p_inode);
+                fs_close_inode(f_inode);
+                fs_close_inode(p_inode);
                 return -4;
             }
 
@@ -235,7 +235,7 @@ int fio_opendir(const char* path) {
             }
             xSemaphoreGive(fio_sem);
 
-            fs_free_inode(p_inode);
+            fs_close_inode(p_inode);
 
             return dd;
         }else{
@@ -360,7 +360,7 @@ int fio_close(int fd) {
 //        if (fio_fds[fd].fdclose)
   //          r = fio_fds[fd].fdclose(fio_fds[fd].opaque);
         xSemaphoreTake(fio_sem, portMAX_DELAY);
-        fs_free_inode(fio_fds[fd].inode);
+        fs_close_inode(fio_fds[fd].inode);
         memset(fio_fds + fd, 0, sizeof(struct fddef_t));
         xSemaphoreGive(fio_sem);
     } else {
@@ -372,7 +372,7 @@ int fio_close(int fd) {
 int fio_closedir(int dd) {
 //    DBGOUT("fio_close(%i)\r\n", fd);
     if (fio_is_dir_open_int(dd)) {
-        fs_free_inode(fio_dds[dd].inode);
+        fs_close_inode(fio_dds[dd].inode);
         xSemaphoreTake(fio_sem, portMAX_DELAY);
         memset(fio_dds + dd, 0, sizeof(struct dddef_t));
         xSemaphoreGive(fio_sem);

@@ -123,7 +123,8 @@ inode_t* fs_open_inode(uint32_t device, uint32_t number){
     return NULL;
 }
 
-void fs_free_inode(inode_t* inode){
+void fs_close_inode(inode_t* inode){
+    //Should i_ops close 
     inode->count--;
     return;
 }
@@ -153,7 +154,7 @@ int fs_open(const char* path, inode_t** inode){
                 if((fss[i].used) && (fss[i].sb.covered == ptr)){
                     ptr2 = ptr;
                     ptr = fs_open_inode(fss[i].sb.device, fss[i].sb.mounted);
-                    fs_free_inode(ptr2);
+                    fs_close_inode(ptr2);
                 }
             }
         }else{
@@ -161,11 +162,11 @@ int fs_open(const char* path, inode_t** inode){
             ret = ptr->inode_ops.i_lookup(ptr, slash);
             if(ret < 0){
                 *inode = NULL;
-                fs_free_inode(ptr);
+                fs_close_inode(ptr);
                 return -1;
             }
             ptr = fs_open_inode(ptr->device, ret);
-            fs_free_inode(ptr2);
+            fs_close_inode(ptr2);
         }
     }
     
