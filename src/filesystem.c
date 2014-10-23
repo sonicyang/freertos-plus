@@ -88,6 +88,7 @@ int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque){
             }
             return it->rsbcb(opaque, &ptr->sb);
         }
+        it = it->next;
     } 
     return -1;
 }
