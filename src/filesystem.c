@@ -136,7 +136,7 @@ int fs_open(const char* path, inode_t** inode){
 
     for(uint32_t i = 0; i < MAX_FS; i++){
         if((fss[i].used) && (fss[i].sb.covered == NULL)){
-            ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
+            ptr = fs_open_inode(fss[i].sb.device, fss[i].sb.mounted);
             break;
         }
     }
@@ -152,7 +152,7 @@ int fs_open(const char* path, inode_t** inode){
             for(uint32_t i = 0; i < MAX_FS; i++){
                 if((fss[i].used) && (fss[i].sb.covered == ptr)){
                     ptr2 = ptr;
-                    ptr = fs_get_inode(fss[i].sb.device, fss[i].sb.mounted);
+                    ptr = fs_open_inode(fss[i].sb.device, fss[i].sb.mounted);
                     fs_free_inode(ptr2);
                 }
             }
@@ -164,7 +164,7 @@ int fs_open(const char* path, inode_t** inode){
                 fs_free_inode(ptr);
                 return -1;
             }
-            ptr = fs_get_inode(ptr->device, ret);
+            ptr = fs_open_inode(ptr->device, ret);
             fs_free_inode(ptr2);
         }
     }

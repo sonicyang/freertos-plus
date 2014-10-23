@@ -104,7 +104,7 @@ int fio_open(const char * path, int flags, int mode) {
             }
         }
 
-        f_inode = fs_get_inode(p_inode->device, target_node);
+        f_inode = fs_open_inode(p_inode->device, target_node);
         
         if(f_inode->mode && 1){
             fs_free_inode(f_inode);
@@ -217,7 +217,7 @@ int fio_opendir(const char* path) {
                 return -1;
             }
 
-            f_inode = fs_get_inode(p_inode->device, target_node);
+            f_inode = fs_open_inode(p_inode->device, target_node);
             
             if(!(f_inode->mode && 1)){
                 fs_free_inode(f_inode);
