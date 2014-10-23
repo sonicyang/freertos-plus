@@ -230,7 +230,7 @@ void test_ramfs_command(int n, char *argv[]) {
 
     fio_printf(1, "\r\n");
 
-    fio_mkdir("/tmp/");
+    fs_mkdir("/tmp/");
     
     file = fio_open("/tmp/test", 0, O_RDWR);
 

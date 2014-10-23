@@ -66,6 +66,7 @@ int fs_open(const char* path, inode_t** inode);
 inode_t* fs_open_inode(uint32_t device, uint32_t number);
 void fs_close_inode(inode_t* inode);
 
+int fs_mkdir(const char * path);
 /*
 int fs_opendir(char * path);
 int fs_list(const char * path, char*** ret_path);

@@ -132,53 +132,6 @@ int fio_open(const char * path, int flags, int mode) {
     }
 }
 
-int fio_mkdir(const char * path) {
-    int ret, target_node;
-    inode_t* p_inode;
-    const char* fn = path + strlen(path) - 1;
-    char buf[64], fn_buf[128];
-
-    if(strcmp(path, "/") == 0)
-        return -1;
-
-    ret = 0;
-    while(*fn == '/')fn--, ret++;
-    while(*fn != '/')fn--;
-    fn++;
-    strncpy(fn_buf, fn, strlen(fn) - ret);
-    fn_buf[strlen(fn) - ret] = '\0';
-
-    strncpy(buf, path, fn - path);
-    buf[fn - path] = '\0';
-
-//    DBGOUT("fio_open(%p, %p, %p, %p, %p)\r\n", fdread, fdwrite, fdseek, fdclose, opaque);
-    ret = fs_open(buf, &p_inode);
-    if(!ret){
-        target_node = p_inode->inode_ops.i_lookup(p_inode, fn_buf);
-
-        if(!target_node){
-            return -1;
-        }else{
-            if(p_inode->inode_ops.i_mkdir){
-                xSemaphoreTake(p_inode->lock, portMAX_DELAY);
-                if(p_inode->inode_ops.i_mkdir(p_inode, fn_buf)){
-                    xSemaphoreGive(p_inode->lock);
-                    fs_close_inode(p_inode);
-                    return -3;       
-                }else{
-                    xSemaphoreGive(p_inode->lock);
-                    fs_close_inode(p_inode);
-                    return 0;       
-                }
-            }else{
-                fs_close_inode(p_inode);
-                return -2;
-            }
-        }
-    }else{
-        return -1;
-    }
-}
 
 int fio_opendir(const char* path) {
     int dd, ret, target_node;

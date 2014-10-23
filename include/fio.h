@@ -39,7 +39,6 @@ struct dddef_t {
 /* Need to be called before using any other fio functions */
 __attribute__((constructor)) void fio_init();
 
-int fio_mkdir(const char * path);
 int fio_dir_is_open(int dd);
 int fio_opendir(const char* path);
 void fio_set_dir_opaque(int dd, void * opaque);
