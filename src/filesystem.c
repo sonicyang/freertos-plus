@@ -92,7 +92,7 @@ int fs_mount(inode_t* mountpoint, uint32_t type, void* opaque){
     return -1;
 }
 
-inode_t* fs_get_inode(uint32_t device, uint32_t number){
+inode_t* fs_open_inode(uint32_t device, uint32_t number){
     for(uint32_t i = 0; i < MAX_INODE_CACHE_SIZE; i++){
         if((inode_pool[i].device == device) && (inode_pool[i].number == number)){
             inode_pool[i].count++;
