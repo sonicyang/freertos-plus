@@ -3,6 +3,7 @@ target remote :3333
 
 b main
 b ls_command
+b fs_mount
 b fio.c:177
 c
 c

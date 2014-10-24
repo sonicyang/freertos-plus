@@ -244,7 +244,11 @@ off_t devfs_seek(struct inode_t* inode, off_t offset) {
     return offset;
 }
 int devfs_read_superblock(void* opaque, struct superblock_t* sb){
-    sb = &dev_superblock;
+    sb->superblock_ops = dev_superblock.superblock_ops;
+    sb->block_size = dev_superblock.block_size;
+    sb->opaque = dev_superblock.opaque;
+    sb->device = dev_superblock.device;
+    sb->type_hash = dev_superblock.type_hash;
     return 0;
 }
 
