@@ -173,8 +173,6 @@ int fio_opendir(const char* path) {
             if(!target_node){
                 return -1;
             }
-            
-            fio_printf(1, "%s\r\n", path_striped);
 
             if(fs_open(path_striped, &f_inode))
                 return -4;
