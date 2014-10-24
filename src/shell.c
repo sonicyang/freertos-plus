@@ -89,7 +89,12 @@ void ls_command(int n, char *argv[]){
         if(argv[i][0] != '-'){
             fio_printf(1, "\r\n");
             dir = fio_opendir(argv[i]);
-                        
+            
+            if(dir < 0){
+                fio_printf(1, "No Such File or Directory %s\r\n", argv[i]);
+                continue;
+            }
+                
             for(c = 0; fio_readdir(dir, &ent) >= 0; c++);
             fio_seekdir(dir, 0);
 
